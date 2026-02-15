@@ -1,0 +1,93 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+# shellcheck disable=SC1091
+source "$SCRIPT_DIR/common"
+
+if test "$#" -ne 2; then
+    fail "Usage: $0 QUERY DISK_SIZE"    
+fi
+
+QUERY="$1"
+shift
+DISK_SIZE="$1"
+shift
+
+JSON=$(vastai search offers "$QUERY disk_space >= $DISK_SIZE" -o dph --raw)
+
+if ! echo "$JSON" | jq > /dev/null; then
+    fail "Invalid JSON: $JSON"
+fi
+
+COST=$(echo "$JSON" | jq '.[0]["dph_total"] *100|round/100' -r)
+OFFER_ID=$(echo "$JSON" | jq '.[0]["id"]' -r)
+CUDA_MAX_GOOD=$(echo "$JSON" | jq '.[0]["cuda_max_good"]' -r)
+CPU_NAME=$(echo "$JSON" | jq '.[0]["cpu_name"] | trim' -r)
+CPU_RAM=$(echo "$JSON" | jq '.[0]["cpu_ram"]' -r)
+GPU_NAME=$(echo "$JSON" | jq '.[0]["gpu_name"] | trim' -r)
+GPU_RAM=$(echo "$JSON" | jq '.[0]["gpu_ram"]' -r)
+# shellcheck disable=SC2034
+HOST_ID=$(echo "$JSON" | jq '.[0]["host_id"]' -r)
+# shellcheck disable=SC2034
+MACHINE_ID=$(echo "$JSON" | jq '.[0]["machine_id"]' -r)
+GEOLOCATION=$(echo "$JSON" | jq '.[0]["geolocation"]' -r)
+
+log "Offer $OFFER_ID:
+  GPU: $GPU_NAME ($((GPU_RAM / 1024)) GB)
+  CPU: $CPU_NAME ($((CPU_RAM / 1024)) GB)
+  Location: $GEOLOCATION
+  Cost: $COST USD/h
+  Maximum CUDA: $CUDA_MAX_GOOD"
+ask "Launch? [yn]"
+log ""
+
+if test "$CUDA_MAX_GOOD" == "12.8"; then
+    IMAGE=vastai/base-image:cuda-12.8.1-auto
+    IMAGE=nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+elif test "$CUDA_MAX_GOOD" == "12.4"; then
+    IMAGE=vastai/base-image:cuda-12.4.1-auto
+    IMAGE=nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
+elif test "$CUDA_MAX_GOOD" == "13.0"; then
+    IMAGE=vastai/base-image:cuda-12.4.1-auto
+    IMAGE=nvidia/cuda:13.0.2-cudnn-runtime-ubuntu24.04
+elif test "$CUDA_MAX_GOOD" == "12.9"; then
+    IMAGE=vastai/base-image:cuda-12.4.1-auto
+    IMAGE=nvidia/cuda:12.9.1-cudnn-runtime-ubuntu24.04
+else
+    fail "Don't know what tag to use for CUDA $CUDA_MAX_GOOD"
+fi
+
+INSTANCE_OUTPUT=$(vastai create instance "$OFFER_ID" --image "$IMAGE" --disk "$DISK_SIZE" --raw)
+
+RESULT=$(echo "$INSTANCE_OUTPUT" | jq '.["success"]')
+if test "$RESULT" != "true"; then
+    fail "Instance creation failed: $(echo "$INSTANCE_OUTPUT" | jq)"
+fi
+
+CONTRACT_ID=$(echo "$INSTANCE_OUTPUT" | jq '.["new_contract"]')
+
+log "Successfully created contract $CONTRACT_ID"
+
+log "Waiting for the instance to become available"
+while test "$(vastai show instance "$CONTRACT_ID" --raw | jq '.["actual_status"]' -r)" != "running"; do
+    sleep 1
+done
+
+SSH_URL=$(vastai ssh-url "$CONTRACT_ID")
+log "The machine is up at $SSH_URL, waiting for SSH to be available"
+
+SSH=("${SSH_PREFIX[@]}")
+SSH+=("$SSH_URL")
+
+while test "$("${SSH[@]}" 'echo ready' 2> /dev/null)" != "ready"; do
+    sleep 1
+done
+
+log "Cleaning up configuration"
+stderr "${SSH[@]}" 'touch /root/.no_auto_tmux; rm /etc/banner /etc/update-motd.d/*; echo "PrintLastLog no" >> /etc/ssh/sshd_config; pkill sshd -SIGHUP' || true
+
+log "GPU info"
+stderr "${SSH[@]}" nvidia-smi
+
+log "SSH available: ${SSH[*]}"
+echo "$SSH_URL"

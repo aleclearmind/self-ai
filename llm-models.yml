@@ -1,0 +1,4 @@
+gpt-oss:
+  OLLAMA_MODEL_NAME: gpt-oss:120b
+  MINIMUM_GPU_RAM: 60
+  MODEL_SIZE: 75
