@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source "$SCRIPT_DIR/common"
+
+if test "$#" -ne 1; then
+    log "Usage: $0 MODEL_NAME"
+    log ""
+    log "Available models:"
+    yq -r 'keys() | .[]' < "$SCRIPT_DIR/llm-models.yml" | sed 's|^|    |' >& /dev/stderr
+    exit 1
+fi
+
+MODEL_NAME="$1"
+shift
+
+yaml_export "$MODEL_NAME"
+
+SSH_URL=$("$SCRIPT_DIR/create-instance" 'gpu_ram >= '"$MINIMUM_GPU_RAM"' cuda_max_good = "12.8"' "$MODEL_SIZE")
+
+SSH=("${SSH_PREFIX[@]}")
+SSH+=("$SSH_URL")
+
+log "Installing ollama"
+"${SSH[@]}" '
+set -euo pipefail
+curl -fsSL https://ollama.com/install.sh | sh
+'
+
+log "Fetching model"
+"${SSH[@]}" '
+ollama serve &
+sleep 3
+ollama pull '"$OLLAMA_MODEL_NAME"'
+pkill ollama
+'
+
+log "Launching ollama"
+PORT=20512
+"${SSH[@]}" \
+    -L "$PORT":localhost:"$PORT" \
+    "OLLAMA_HOST=127.0.0.1:$PORT ollama serve"
