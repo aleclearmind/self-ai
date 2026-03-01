@@ -2,16 +2,16 @@
   "nodes": {
     "nixpkgs": {
       "locked": {
-        "lastModified": 1771008912,
-        "narHash": "sha256-gf2AmWVTs8lEq7z/3ZAsgnZDhWIckkb+ZnAo5RzSxJg=",
+        "lastModified": 1772047000,
+        "narHash": "sha256-7DaQVv4R97cii/Qdfy4tmDZMB2xxtyIvNGSwXBBhSmo=",
         "owner": "nixos",
         "repo": "nixpkgs",
-        "rev": "a82ccc39b39b621151d6732718e3e250109076fa",
+        "rev": "1267bb4920d0fc06ea916734c11b0bf004bbe17e",
         "type": "github"
       },
       "original": {
         "owner": "nixos",
-        "ref": "nixos-unstable",
+        "ref": "nixos-25.11",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -112,11 +112,11 @@
         "uv2nix-hammer-overrides": "uv2nix-hammer-overrides"
       },
       "locked": {
-        "lastModified": 1771157003,
+        "lastModified": 1771157376,
         "narHash": "sha256-ty+fdHLDh1de8AUMtdbtFvbn+3eEp5kpv5g5W13jv2s=",
         "owner": "aleclearmind",
         "repo": "simple-uvnix",
-        "rev": "c24a0f14fee654ff05f69419697a70182829fd72",
+        "rev": "cd1d48ec89c35e21361677cf812b6cbdcd418008",
         "type": "github"
       },
       "original": {

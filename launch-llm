@@ -18,33 +18,42 @@ shift
 
 yaml_export "$MODELS_YAML" "$MODEL_NAME"
 
-if false; then
 SSH_URL=$("$SCRIPT_DIR/create-instance" 'gpu_ram >= '"$MINIMUM_GPU_RAM"' cuda_max_good = "12.8"' "$MODEL_SIZE")
-else
-    SSH_URL="ssh://root@ssh9.vast.ai:22842"
-fi
 
 SSH=("${SSH_PREFIX[@]}")
 SSH+=("$SSH_URL")
 
-log "Installing ollama"
+log "Installing nix"
 "${SSH[@]}" '
 set -euo pipefail
-apt-get update
-apt-get install -y zstd
-curl -fsSL https://ollama.com/install.sh | sh
+
+apt-get install -y xz-utils
+
+sh <(curl --proto "=https" --tlsv1.2 -L https://nixos.org/nix/install) --daemon --yes
+
+cat > /etc/nix/nix.conf <<EOF
+extra-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
+extra-trusted-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
+extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=
+extra-experimental-features = flakes nix-command
+EOF
+'
+
+OLLAMA="nix run --override-input nixpkgs nixpkgs/nixos-25.11 github:aleclearmind/self-ai#ollama --"
+log "Installing ollama"
+"${SSH[@]}" "$OLLAMA --help"
 '
 
 log "Fetching model"
-"${SSH[@]}" '
-ollama serve &
+"${SSH[@]}" "
+$OLLAMA serve &
 sleep 3
-ollama pull '"$OLLAMA_MODEL_NAME"'
+$OLLAMA pull $OLLAMA_MODEL_NAME
 pkill ollama
-'
+"
 
 log "Launching ollama"
 PORT=20512
 "${SSH[@]}" \
     -L "$PORT":localhost:"$PORT" \
-    "OLLAMA_HOST=127.0.0.1:$PORT ollama serve"
+    "OLLAMA_HOST=127.0.0.1:$PORT $OLLAMA serve"

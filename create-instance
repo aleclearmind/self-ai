@@ -5,15 +5,20 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source "$SCRIPT_DIR/common"
 
 if test "$#" -ne 2; then
-    fail "Usage: $0 QUERY DISK_SIZE"    
+    fail "Usage: $0 QUERY DISK_SIZE"
 fi
 
 QUERY="$1"
 shift
+
 DISK_SIZE="$1"
 shift
 
 JSON=$(vastai search offers "$QUERY disk_space >= $DISK_SIZE" -o dph --raw)
+
+if test "$JSON" == ""; then
+    fail "No response"
+fi
 
 if ! echo "$JSON" | jq > /dev/null; then
     fail "Invalid JSON: $JSON"
@@ -24,20 +29,29 @@ OFFER_ID=$(echo "$JSON" | jq '.[0]["id"]' -r)
 CUDA_MAX_GOOD=$(echo "$JSON" | jq '.[0]["cuda_max_good"]' -r)
 CPU_NAME=$(echo "$JSON" | jq '.[0]["cpu_name"] | trim' -r)
 CPU_RAM=$(echo "$JSON" | jq '.[0]["cpu_ram"]' -r)
+GPU_COUNT=$(echo "$JSON" | jq '.[0]["num_gpus"]' -r)
 GPU_NAME=$(echo "$JSON" | jq '.[0]["gpu_name"] | trim' -r)
 GPU_RAM=$(echo "$JSON" | jq '.[0]["gpu_ram"]' -r)
+GPU_TOTAL_RAM=$(echo "$JSON" | jq '.[0]["gpu_total_ram"]' -r)
 # shellcheck disable=SC2034
 HOST_ID=$(echo "$JSON" | jq '.[0]["host_id"]' -r)
 # shellcheck disable=SC2034
 MACHINE_ID=$(echo "$JSON" | jq '.[0]["machine_id"]' -r)
 GEOLOCATION=$(echo "$JSON" | jq '.[0]["geolocation"]' -r)
 
+DOWNLOAD_SPEED=$(echo "$JSON" | jq '.[0]["inet_down"]' -r)
+DOWNLOAD_COST=$(echo "$JSON" | jq '.[0]["inet_down_cost"]' -r)
+UPLOAD_COST=$(echo "$JSON" | jq '.[0]["inet_up_cost"]' -r)
+
+
 log "Offer $OFFER_ID:
-  GPU: $GPU_NAME ($((GPU_RAM / 1024)) GB)
+  GPU: ${GPU_COUNT}x $GPU_NAME ($((GPU_RAM / 1024)) GB each, $((GPU_TOTAL_RAM / 1024)) GB total)
   CPU: $CPU_NAME ($((CPU_RAM / 1024)) GB)
   Location: $GEOLOCATION
   Cost: $COST USD/h
-  Maximum CUDA: $CUDA_MAX_GOOD"
+  Maximum CUDA: $CUDA_MAX_GOOD
+  Download speed: $DOWNLOAD_SPEED Mb/s ($DOWNLOAD_COST USD/GB)
+  Cost of downloading $DISK_SIZE GB: $(python -c "print(f"'"'"{0.018 * $UPLOAD_COST * $DISK_SIZE + $DOWNLOAD_COST * $DISK_SIZE:.2f}"'"'")") USD"
 ask "Launch? [yn]"
 log ""
 
