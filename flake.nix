@@ -44,6 +44,186 @@
           ollama = pkgs.writeShellScriptBin "ollama" ''
             exec nix run --override-input nixpkgs nixpkgs/nixos-25.11 --impure github:aleclearmind/nixGL/8b4cf8637c0b0bdbe433a8758395f8ee58148c54 -- ${pkgs.ollama-cuda}/bin/ollama "$@"
           '';
+
+          sshContainerImage =
+            let
+              system = "x86_64-linux";
+              pkgs = nixpkgs.legacyPackages.${system};
+
+              authorizedKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJK78UXNpwYD0MaDerT5O+cdF9YBKbzLygMIle3+JTs6";
+
+              passwdFile = pkgs.writeTextDir "etc/passwd" ''
+                root:x:0:0:root:/root:/bin/bash
+                sshd:x:74:74:Privilege-separated SSH:/var/empty:/bin/false
+                nobody:x:65534:65534:nobody:/var/empty:/bin/false
+              '';
+
+              groupFile = pkgs.writeTextDir "etc/group" ''
+                root:x:0:
+                sshd:x:74:
+                nobody:x:65534:
+              '';
+
+              shadowFile = pkgs.writeTextDir "etc/shadow" ''
+                root:*:1::::::
+                sshd:*:1::::::
+                nobody:*:1::::::
+              '';
+
+              nssSwitchFile = pkgs.writeTextDir "etc/nsswitch.conf" ''
+                passwd: files
+                group: files
+                shadow: files
+                hosts: files dns
+              '';
+
+              sshdConfigFile = pkgs.writeTextDir "etc/ssh/sshd_config" ''
+                Port 22
+                AddressFamily any
+                ListenAddress 0.0.0.0
+                ListenAddress ::
+
+                HostKey /etc/ssh/ssh_host_ed25519_key
+                HostKey /etc/ssh/ssh_host_rsa_key
+
+                PermitRootLogin prohibit-password
+                PubkeyAuthentication yes
+                AuthorizedKeysFile .ssh/authorized_keys
+
+                PasswordAuthentication no
+                KbdInteractiveAuthentication no
+                UsePAM no
+
+                Subsystem sftp ${pkgs.openssh}/libexec/sftp-server
+
+                PrintMotd no
+                AcceptEnv LANG LC_*
+              '';
+
+              opensshBin = pkgs.buildEnv {
+                name = "openssh-bin";
+                paths = [ pkgs.openssh ];
+                pathsToLink = [
+                  "/bin"
+                  "/libexec"
+                ];
+              };
+
+              entrypoint = pkgs.writeShellScriptBin "entrypoint" ''
+                set -euo pipefail
+
+                if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
+                  ${pkgs.openssh}/bin/ssh-keygen -t ed25519 \
+                    -f /etc/ssh/ssh_host_ed25519_key -N ""
+                fi
+                if [ ! -f /etc/ssh/ssh_host_rsa_key ]; then
+                  ${pkgs.openssh}/bin/ssh-keygen -t rsa -b 4096 \
+                    -f /etc/ssh/ssh_host_rsa_key -N ""
+                fi
+
+                exec ${pkgs.openssh}/bin/sshd -D -e -f /etc/ssh/sshd_config
+              '';
+
+              baseImage = pkgs.dockerTools.buildImage {
+                name = "vast-ai-nix";
+                tag = "latest";
+
+                copyToRoot = [
+                  pkgs.bash
+                  pkgs.coreutils
+                  opensshBin
+                  passwdFile
+                  groupFile
+                  shadowFile
+                  nssSwitchFile
+                  sshdConfigFile
+                  entrypoint
+                ];
+
+                runAsRoot = ''
+                  mkdir -p /root/.ssh
+                  echo '${authorizedKey}' > /root/.ssh/authorized_keys
+                  chmod 700 /root/.ssh
+                  chmod 600 /root/.ssh/authorized_keys
+
+                  mkdir -p /tmp
+                  chmod 1777 /tmp
+
+                  mkdir -p /var/empty
+                  chmod 711 /var/empty
+
+                  mkdir -p /run/sshd
+                '';
+
+                config = {
+                  Cmd = [ "${entrypoint}/bin/entrypoint" ];
+                  ExposedPorts = {
+                    "22/tcp" = { };
+                  };
+                  Env = [
+                    "PATH=/bin"
+                  ];
+                };
+              };
+
+            in
+            pkgs.runCommand "vast-ai-nix-stripped.tar.gz"
+              {
+                nativeBuildInputs = [
+                  pkgs.jq
+                  pkgs.gnutar
+                  pkgs.pigz
+                  pkgs.fakeroot
+                ];
+              }
+              ''
+                fakeroot bash -euo pipefail -c '
+                  mkdir work && cd work
+                  tar xf ${baseImage}
+
+                  layer=$(jq -r ".[0].Layers[0]" manifest.json)
+                  mkdir layer
+                  tar xf "$layer" -C layer
+
+                  # glibc: locale source data + charset converters
+                  rm -rf layer/nix/store/*-glibc-*/share/i18n
+                  rm -rf layer/nix/store/*-glibc-*/share/locale
+                  rm -rf layer/nix/store/*-glibc-*/lib/gconv
+
+                  # ncurses: keep only common terminal definitions
+                  find layer/nix/store -path "*/share/terminfo" -type d | while read d; do
+                    find "$d" -type f \
+                      ! -name "xterm*" ! -name "linux" ! -name "dumb" \
+                      ! -name "screen*" ! -name "vt100" ! -name "vt220" \
+                      ! -name "tmux*" ! -name "alacritty*" \
+                      -delete
+                    find "$d" -type d -empty -delete
+                  done
+
+                  # man, doc, info, locale across all packages
+                  find layer/nix/store -maxdepth 3 -path "*/share/man" -type d -exec rm -rf {} + 2>/dev/null || true
+                  find layer/nix/store -maxdepth 3 -path "*/share/doc" -type d -exec rm -rf {} + 2>/dev/null || true
+                  find layer/nix/store -maxdepth 3 -path "*/share/info" -type d -exec rm -rf {} + 2>/dev/null || true
+                  find layer/nix/store -maxdepth 3 -path "*/share/locale" -type d -exec rm -rf {} + 2>/dev/null || true
+
+                  # repack layer and fix digests
+                  tar cf "$layer" -C layer .
+                  rm -rf layer
+
+                  newdigest="sha256:$(sha256sum "$layer" | cut -d" " -f1)"
+                  configfile=$(jq -r ".[0].Config" manifest.json)
+                  jq ".rootfs.diff_ids = [\"$newdigest\"]" "$configfile" > config_new.json
+
+                  newconfighash=$(sha256sum config_new.json | cut -d" " -f1)
+                  mv config_new.json "$newconfighash.json"
+                  jq ".[0].Config = \"$newconfighash.json\"" manifest.json > manifest_new.json
+                  mv manifest_new.json manifest.json
+                  rm -f "$configfile"
+
+                  tar cf - * | pigz > $out
+                '
+              '';
+
         }
       );
 
