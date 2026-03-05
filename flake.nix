@@ -42,7 +42,7 @@
         in
         {
           ollama = pkgs.writeShellScriptBin "ollama" ''
-            exec nix run --override-input nixpkgs nixpkgs/nixos-25.11 --impure github:aleclearmind/nixGL/8b4cf8637c0b0bdbe433a8758395f8ee58148c54 -- ${pkgs.ollama-cuda}/bin/ollama "$@"
+            exec nix run --override-input nixpkgs nixpkgs/nixos-25.11 --impure github:aleclearmind/nixGL/80d7998c2d2e06ebbfc923d42efbfaf650573610 -- ${pkgs.ollama-cuda}/bin/ollama "$@"
           '';
 
           sshContainerImage =
@@ -56,6 +56,13 @@
                 root:x:0:0:root:/root:/bin/bash
                 sshd:x:74:74:Privilege-separated SSH:/var/empty:/bin/false
                 nobody:x:65534:65534:nobody:/var/empty:/bin/false
+              '';
+
+              passwdFile = pkgs.writeTextDir "etc/nix/nix.conf" ''
+                extra-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
+                extra-trusted-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
+                extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=
+                extra-experimental-features = flakes nix-command
               '';
 
               groupFile = pkgs.writeTextDir "etc/group" ''
@@ -131,6 +138,7 @@
                 copyToRoot = [
                   pkgs.bash
                   pkgs.coreutils
+                  pkgs.nix
                   opensshBin
                   passwdFile
                   groupFile

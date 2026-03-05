@@ -18,7 +18,7 @@ shift
 
 yaml_export "$MODELS_YAML" "$MODEL_NAME"
 
-SSH_URL=$("$SCRIPT_DIR/create-instance" 'gpu_ram >= '"$MINIMUM_GPU_RAM"' cuda_max_good = "12.8"' "$MODEL_SIZE")
+SSH_URL=$("$SCRIPT_DIR/create-instance" 'gpu_ram >= '"$MINIMUM_GPU_RAM"' cuda_max_good = "12.8" geolocation != "US"' "$MODEL_SIZE")
 
 SSH=("${SSH_PREFIX[@]}")
 SSH+=("$SSH_URL")
@@ -42,7 +42,6 @@ EOF
 OLLAMA="nix run --override-input nixpkgs nixpkgs/nixos-25.11 github:aleclearmind/self-ai#ollama --"
 log "Installing ollama"
 "${SSH[@]}" "$OLLAMA --help"
-'
 
 log "Fetching model"
 "${SSH[@]}" "
