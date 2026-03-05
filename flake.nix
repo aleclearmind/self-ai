@@ -50,15 +50,13 @@
               system = "x86_64-linux";
               pkgs = nixpkgs.legacyPackages.${system};
 
-              authorizedKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJK78UXNpwYD0MaDerT5O+cdF9YBKbzLygMIle3+JTs6";
-
               passwdFile = pkgs.writeTextDir "etc/passwd" ''
                 root:x:0:0:root:/root:/bin/bash
                 sshd:x:74:74:Privilege-separated SSH:/var/empty:/bin/false
                 nobody:x:65534:65534:nobody:/var/empty:/bin/false
               '';
 
-              passwdFile = pkgs.writeTextDir "etc/nix/nix.conf" ''
+              nixConf = pkgs.writeTextDir "etc/nix/nix.conf" ''
                 extra-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
                 extra-trusted-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
                 extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=
@@ -119,6 +117,14 @@
               entrypoint = pkgs.writeShellScriptBin "entrypoint" ''
                 set -euo pipefail
 
+                if [ -z "''${SSH_PUBLIC_KEY:-}" ]; then
+                  echo "ERROR: SSH_PUBLIC_KEY environment variable is not set" >&2
+                  exit 1
+                fi
+
+                echo "$SSH_PUBLIC_KEY" > /root/.ssh/authorized_keys
+                chmod 600 /root/.ssh/authorized_keys
+
                 if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
                   ${pkgs.openssh}/bin/ssh-keygen -t ed25519 \
                     -f /etc/ssh/ssh_host_ed25519_key -N ""
@@ -139,6 +145,8 @@
                   pkgs.bash
                   pkgs.coreutils
                   pkgs.nix
+                  pkgs.cacert
+                  pkgs.tini
                   opensshBin
                   passwdFile
                   groupFile
@@ -146,13 +154,12 @@
                   nssSwitchFile
                   sshdConfigFile
                   entrypoint
+                  nixConf
                 ];
 
                 runAsRoot = ''
                   mkdir -p /root/.ssh
-                  echo '${authorizedKey}' > /root/.ssh/authorized_keys
                   chmod 700 /root/.ssh
-                  chmod 600 /root/.ssh/authorized_keys
 
                   mkdir -p /tmp
                   chmod 1777 /tmp
@@ -164,12 +171,13 @@
                 '';
 
                 config = {
-                  Cmd = [ "${entrypoint}/bin/entrypoint" ];
+                  Cmd = [ "${pkgs.tini}/bin/tini" "--" "${entrypoint}/bin/entrypoint" ];
                   ExposedPorts = {
                     "22/tcp" = { };
                   };
                   Env = [
                     "PATH=/bin"
+                    "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
                   ];
                 };
               };
@@ -234,6 +242,6 @@
 
         }
       );
-
     };
+
 }
