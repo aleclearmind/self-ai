@@ -168,7 +168,16 @@
                   pkgs.nix
                   pkgs.cacert
                   pkgs.tini
-                  pkgs.ollama
+                  pkgs.ollama-cuda
+
+                  # Debug
+                  pkgs.nano
+                  pkgs.curl
+                  pkgs.strace
+                  pkgs.findutils
+                  pkgs.binutils
+                  pkgs.less
+                  
                   opensshBin
                   passwdFile
                   groupFile
