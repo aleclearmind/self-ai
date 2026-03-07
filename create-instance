@@ -71,7 +71,17 @@ else
     fail "Don't know what tag to use for CUDA $CUDA_MAX_GOOD"
 fi
 
-INSTANCE_OUTPUT=$(vastai create instance "$OFFER_ID" --image "$IMAGE" --disk "$DISK_SIZE" --raw)
+IMAGE=ghcr.io/aleclearmind/vast-ai-nix
+INSTANCE_OUTPUT=$(
+    vastai create instance \
+           "$OFFER_ID" \
+           --image "$IMAGE" \
+           --disk "$DISK_SIZE" \
+           --raw \
+           --env '-e SSH_PUBLIC_KEY="'"$(cat ~/.ssh/id_ed25519_datacrunch.pub)"'"' \
+           --direct \
+           --args
+)
 
 RESULT=$(echo "$INSTANCE_OUTPUT" | jq '.["success"]')
 if test "$RESULT" != "true"; then

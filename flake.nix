@@ -61,6 +61,7 @@
                 extra-trusted-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
                 extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=
                 extra-experimental-features = flakes nix-command
+                build-users-group =
               '';
 
               groupFile = pkgs.writeTextDir "etc/group" ''
@@ -134,8 +135,24 @@
                     -f /etc/ssh/ssh_host_rsa_key -N ""
                 fi
 
+                DRIVER_VERSION=$(cat /proc/driver/nvidia/version | grep Module | sed 's|.*Module.*  \([0-9.]\+\) .*|\1|')
+
+                mount | grep -i .so."$DRIVER_VERSION" | awk '{ print $3 }'| while read FILE; do
+                  LINK=$(dirname "$FILE")/$(basename "$FILE" ".$DRIVER_VERSION").1
+                  if ! test -e "$LINK"; then
+                    echo "Creating $LINK"
+                    ln -s "$FILE" "$LINK"
+                  fi
+                done
+
                 exec ${pkgs.openssh}/bin/sshd -D -e -f /etc/ssh/sshd_config
               '';
+
+              etcProfile = pkgs.writeTextDir "etc/profile" ''
+                export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+                export LD_LIBRARY_PATH=/lib/x86_64-linux-gnu
+              '';
+
 
               baseImage = pkgs.dockerTools.buildImage {
                 name = "vast-ai-nix";
@@ -147,12 +164,14 @@
                   pkgs.nix
                   pkgs.cacert
                   pkgs.tini
+                  pkgs.ollama
                   opensshBin
                   passwdFile
                   groupFile
                   shadowFile
                   nssSwitchFile
                   sshdConfigFile
+                  etcProfile
                   entrypoint
                   nixConf
                 ];
@@ -177,7 +196,6 @@
                   };
                   Env = [
                     "PATH=/bin"
-                    "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
                   ];
                 };
               };
