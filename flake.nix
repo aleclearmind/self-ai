@@ -48,7 +48,6 @@
           sshContainerImage =
             let
               system = "x86_64-linux";
-              pkgs = nixpkgs.legacyPackages.${system};
 
               passwdFile = pkgs.writeTextDir "etc/passwd" ''
                 root:x:0:0:root:/root:/bin/bash
