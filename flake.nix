@@ -137,7 +137,7 @@
 
                 DRIVER_VERSION=$(cat /proc/driver/nvidia/version | grep Module | sed 's|.*Module.*  \([0-9.]\+\) .*|\1|')
 
-                mount | grep -i .so."$DRIVER_VERSION" | awk '{ print $3 }'| while read FILE; do
+                ${pkgs.util-linux}/bin/mount | ${pkgs.gnugrep}/bin/grep -i .so."$DRIVER_VERSION" | ${pkgs.gawk}/bin/awk '{ print $3 }'| while read FILE; do
                   LINK=$(dirname "$FILE")/$(basename "$FILE" ".$DRIVER_VERSION").1
                   if ! test -e "$LINK"; then
                     echo "Creating $LINK"
@@ -161,6 +161,9 @@
                 copyToRoot = [
                   pkgs.bash
                   pkgs.coreutils
+                  pkgs.util-linux
+                  pkgs.gnugrep
+                  pkgs.gawk
                   pkgs.nix
                   pkgs.cacert
                   pkgs.tini
