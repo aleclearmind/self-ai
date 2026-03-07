@@ -19,6 +19,9 @@ jobs:
         with:
           nix_path: nixpkgs=channel:nixos-25.11
           extra_nix_config: |
+            extra-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
+            extra-trusted-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
+            extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=
             experimental-features = nix-command flakes
 
       - name: Build image
