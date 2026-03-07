@@ -135,7 +135,7 @@
                     -f /etc/ssh/ssh_host_rsa_key -N ""
                 fi
 
-                DRIVER_VERSION=$(cat /proc/driver/nvidia/version | grep Module | sed 's|.*Module.*  \([0-9.]\+\) .*|\1|')
+                DRIVER_VERSION=$(cat /proc/driver/nvidia/version | ${pkgs.gnugrep}/grep Module | ${pkgs.gnused}/sed 's|.*Module.*  \([0-9.]\+\) .*|\1|')
 
                 ${pkgs.util-linux}/bin/mount | ${pkgs.gnugrep}/bin/grep -i .so."$DRIVER_VERSION" | ${pkgs.gawk}/bin/awk '{ print $3 }'| while read FILE; do
                   LINK=$(dirname "$FILE")/$(basename "$FILE" ".$DRIVER_VERSION").1
@@ -164,6 +164,7 @@
                   pkgs.util-linux
                   pkgs.gnugrep
                   pkgs.gawk
+                  pkgs.gnused
                   pkgs.nix
                   pkgs.cacert
                   pkgs.tini
