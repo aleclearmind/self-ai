@@ -117,6 +117,17 @@
               entrypoint = pkgs.writeShellScriptBin "entrypoint" ''
                 set -euo pipefail
 
+                mkdir -p /root/.ssh
+                chmod 700 /root/.ssh
+
+                mkdir -p /tmp
+                chmod 1777 /tmp
+
+                mkdir -p /var/empty
+                chmod 711 /var/empty
+
+                mkdir -p /run/sshd
+
                 if [ -z "''${SSH_PUBLIC_KEY:-}" ]; then
                   echo "ERROR: SSH_PUBLIC_KEY environment variable is not set" >&2
                   exit 1
@@ -187,19 +198,6 @@
                   entrypoint
                   nixConf
                 ];
-
-                runAsRoot = ''
-                  mkdir -p /root/.ssh
-                  chmod 700 /root/.ssh
-
-                  mkdir -p /tmp
-                  chmod 1777 /tmp
-
-                  mkdir -p /var/empty
-                  chmod 711 /var/empty
-
-                  mkdir -p /run/sshd
-                '';
 
                 config = {
                   Cmd = [ "${pkgs.tini}/bin/tini" "--" "${entrypoint}/bin/entrypoint" ];
