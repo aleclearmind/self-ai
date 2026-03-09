@@ -1,3 +1,9 @@
+# TODO: finish launch-llm and launch-whisper
+# TODO: strace to reduce image size
+# TODO: we could pin an image to a certain cuda capability https://github.com/NixOS/nixpkgs/blob/nixos-25.11/pkgs/development/python-modules/torch/source/default.nix#L123
+#       pytorch, libcublas, libggml-cuda.so, libcudnn_cnn_*.so take GBs
+#       vastai search gives you compute_cap (11 different ones as of now)
+
 {
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
@@ -37,7 +43,12 @@
         let
           pkgs = import nixpkgs {
             inherit system;
-            config.allowUnfree = true;
+            config = {
+              allowUnfree = true;
+              cudaSupport = true;
+              cudaCapabilities = [ "12.0" ];
+              cudaForwardCompat = true;
+            };
           };
         in
         {
@@ -169,25 +180,39 @@
                 tag = "latest";
 
                 copyToRoot = [
+                  # Common
                   pkgs.bash
                   pkgs.coreutils
                   pkgs.util-linux
                   pkgs.gnugrep
                   pkgs.gawk
                   pkgs.gnused
-                  pkgs.nix
                   pkgs.cacert
                   pkgs.tini
+                  python313Packages.huggingface-hub
+
+                  # Ollama
                   pkgs.ollama-cuda
 
+                  # Whisper
+                  pkgs.whisper-cpp
+
+                  # llama
+                  pkgs.llama-cpp
+
+                  # vllm
+                  # vllm
+
                   # Debug
+                  pkgs.nix
                   pkgs.nano
                   pkgs.curl
                   pkgs.strace
                   pkgs.findutils
                   pkgs.binutils
                   pkgs.less
-                  
+
+                  # System
                   opensshBin
                   passwdFile
                   groupFile
