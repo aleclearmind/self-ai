@@ -189,7 +189,7 @@
                   pkgs.gnused
                   pkgs.cacert
                   pkgs.tini
-                  python313Packages.huggingface-hub
+                  pkgs.python313Packages.huggingface-hub
 
                   # Ollama
                   pkgs.ollama-cuda
