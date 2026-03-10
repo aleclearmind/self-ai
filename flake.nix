@@ -41,25 +41,13 @@
       packages = forAllSystems (
         system:
         let
-          pkgs = import nixpkgs {
-            inherit system;
-            config = {
-              allowUnfree = true;
-              cudaSupport = true;
-              cudaCapabilities = [ "12.0" ];
-              cudaForwardCompat = true;
-            };
-          };
-        in
-        {
-          ollama = pkgs.writeShellScriptBin "ollama" ''
-            exec nix run --override-input nixpkgs nixpkgs/nixos-25.11 --impure github:aleclearmind/nixGL/80d7998c2d2e06ebbfc923d42efbfaf650573610 -- ${pkgs.ollama-cuda}/bin/ollama "$@"
-          '';
-
-          sshContainerImage =
+          cudaPackage =
+            {
+              name,
+              extraPackages,
+              pkgs,
+            }:
             let
-              system = "x86_64-linux";
-
               passwdFile = pkgs.writeTextDir "etc/passwd" ''
                 root:x:0:0:root:/root:/bin/bash
                 sshd:x:74:74:Privilege-separated SSH:/var/empty:/bin/false
@@ -174,9 +162,8 @@
                 export LD_LIBRARY_PATH=/lib/x86_64-linux-gnu
               '';
 
-
               baseImage = pkgs.dockerTools.buildImage {
-                name = "vast-ai-nix";
+                name = "vast-ai-nix-${name}";
                 tag = "latest";
 
                 copyToRoot = [
@@ -190,18 +177,6 @@
                   pkgs.cacert
                   pkgs.tini
                   pkgs.python313Packages.huggingface-hub
-
-                  # Ollama
-                  pkgs.ollama-cuda
-
-                  # Whisper
-                  pkgs.whisper-cpp
-
-                  # llama
-                  pkgs.llama-cpp
-
-                  # vllm
-                  # vllm
 
                   # Debug
                   pkgs.nix
@@ -222,10 +197,15 @@
                   etcProfile
                   entrypoint
                   nixConf
-                ];
+                ]
+                ++ extraPackages;
 
                 config = {
-                  Cmd = [ "${pkgs.tini}/bin/tini" "--" "${entrypoint}/bin/entrypoint" ];
+                  Cmd = [
+                    "${pkgs.tini}/bin/tini"
+                    "--"
+                    "${entrypoint}/bin/entrypoint"
+                  ];
                   ExposedPorts = {
                     "22/tcp" = { };
                   };
@@ -292,8 +272,68 @@
                   tar cf - * | pigz > $out
                 '
               '';
+          pkgsForCapability =
+            capability:
+            import nixpkgs {
+              inherit system;
+              config = {
+                allowUnfree = true;
+                cudaSupport = true;
+              }
+              // (
+                if builtins.isNull capability then
+                  { }
+                else
+                  {
+                    cudaCapabilities = [ capability ];
+                    cudaForwardCompat = false;
+                  }
+              );
+            };
+          capabilities =
+            let
+              genericPkgs = import nixpkgs {
+                inherit system;
+                config = {
+                  allowUnfree = true;
+                  cudaSupport = true;
+                };
+              };
+            in
+            [ null ] ++ builtins.attrNames genericPkgs._cuda.db.cudaCapabilityToInfo;
+          servicesForPkgs = pkgs: {
+            whisper = [ pkgs.whisper-cpp ];
+            llama = [ pkgs.llama-cpp ];
+            vllm = [ pkgs.vllm ];
+            ollama = [ pkgs.ollama-cuda ];
+          };
+        in
+        builtins.listToAttrs (
+          lib.flatten (
+            builtins.map (
+              capability:
+              let
+                pkgs = pkgsForCapability capability;
+                services = servicesForPkgs pkgs;
+              in
+              (builtins.map (
+                serviceName:
+                let
+                  name = if builtins.isNull capability then serviceName else "${serviceName}-${capability}";
+                in
+                {
+                  name = name;
+                  value = cudaPackage {
+                    name = name;
+                    extraPackages = services."${serviceName}";
+                    pkgs = pkgs;
+                  };
+                }
+              ) (builtins.attrNames services))
+            ) capabilities
+          )
+        )
 
-        }
       );
     };
 

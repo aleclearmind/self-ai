@@ -24,17 +24,24 @@ jobs:
             extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=
             experimental-features = nix-command flakes
 
-      - name: Build image
-        run: nix build .#sshContainerImage -L
-
       - name: Login to ghcr.io
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
-      - name: Load, tag and push
+      - name: Build image
+        run:
+
+      - name: Build and push image
         run: |
-          IMAGE=ghcr.io/${{ github.repository_owner }}/vast-ai-nix
-          docker load < result
-          docker tag vast-ai-nix:latest "$IMAGE:latest"
-          docker tag vast-ai-nix:latest "$IMAGE:${{ github.sha }}"
-          docker push "$IMAGE:latest"
-          docker push "$IMAGE:${{ github.sha }}"
+          for PACKAGE in whisper-12.0 whisper; do
+            echo "Building $PACKAGE" > /dev/stderr
+            nix build .#'"'"$PACKAGE"'"' -L
+
+            echo "Pushing $PACKAGE" > /dev/stderr
+            IMAGE_NAME="vast-ai-nix-$PACKAGE"
+            IMAGE=ghcr.io/${{ github.repository_owner }}/$IMAGE_NAME
+            docker load < result
+            docker tag $IMAGE_NAME:latest "$IMAGE:latest"
+            docker tag $IMAGE_NAME:latest "$IMAGE:${{ github.sha }}"
+            docker push "$IMAGE:latest"
+            docker push "$IMAGE:${{ github.sha }}"
+          done
