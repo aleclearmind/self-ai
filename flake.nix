@@ -44,6 +44,7 @@
           cudaPackage =
             {
               name,
+              baseName,
               extraPackages,
               pkgs,
             }:
@@ -163,7 +164,7 @@
               '';
 
               baseImage = pkgs.dockerTools.buildImage {
-                name = "vast-ai-nix-${name}";
+                name = "vast-ai-nix-${baseName}";
                 tag = "latest";
 
                 copyToRoot = [
@@ -197,81 +198,85 @@
                   etcProfile
                   entrypoint
                   nixConf
-                ]
-                ++ extraPackages;
-
-                config = {
-                  Cmd = [
-                    "${pkgs.tini}/bin/tini"
-                    "--"
-                    "${entrypoint}/bin/entrypoint"
-                  ];
-                  ExposedPorts = {
-                    "22/tcp" = { };
-                  };
-                  Env = [
-                    "PATH=/bin"
-                  ];
-                };
+                ];
               };
 
             in
-            pkgs.runCommand "vast-ai-nix-stripped.tar.gz"
-              {
-                nativeBuildInputs = [
-                  pkgs.jq
-                  pkgs.gnutar
-                  pkgs.pigz
-                  pkgs.fakeroot
+            pkgs.dockerTools.buildImage {
+              name = "vast-ai-nix-${name}";
+              tag = "latest";
+              fromImage = baseImage;
+              copyToRoot = extraPackages;
+              config = {
+                Cmd = [
+                  "${pkgs.tini}/bin/tini"
+                  "--"
+                  "${entrypoint}/bin/entrypoint"
                 ];
-              }
-              ''
-                fakeroot bash -euo pipefail -c '
-                  mkdir work && cd work
-                  tar xf ${baseImage}
+                ExposedPorts = {
+                  "22/tcp" = { };
+                };
+                Env = [
+                  "PATH=/bin"
+                ];
+              };
+            };
+          # pkgs.runCommand "vast-ai-nix-stripped.tar.gz"
+          #   {
+          #     nativeBuildInputs = [
+          #       pkgs.jq
+          #       pkgs.gnutar
+          #       pkgs.pigz
+          #       pkgs.fakeroot
+          #     ];
+          #   }
+          #   ''
+          #     fakeroot bash -euo pipefail -c '
+          #       mkdir work && cd work
+          #       tar xf ${baseImage}
 
-                  layer=$(jq -r ".[0].Layers[0]" manifest.json)
-                  mkdir layer
-                  tar xf "$layer" -C layer
+          #       layer=$(jq -r ".[0].Layers[0]" manifest.json)
+          #       mkdir layer
+          #       tar xf "$layer" -C layer
 
-                  # glibc: locale source data + charset converters
-                  rm -rf layer/nix/store/*-glibc-*/share/i18n
-                  rm -rf layer/nix/store/*-glibc-*/share/locale
-                  rm -rf layer/nix/store/*-glibc-*/lib/gconv
+          #       # glibc: locale source data + charset converters
+          #       rm -rf layer/nix/store/*-glibc-*/share/i18n
+          #       rm -rf layer/nix/store/*-glibc-*/share/locale
+          #       rm -rf layer/nix/store/*-glibc-*/lib/gconv
 
-                  # ncurses: keep only common terminal definitions
-                  find layer/nix/store -path "*/share/terminfo" -type d | while read d; do
-                    find "$d" -type f \
-                      ! -name "xterm*" ! -name "linux" ! -name "dumb" \
-                      ! -name "screen*" ! -name "vt100" ! -name "vt220" \
-                      ! -name "tmux*" ! -name "alacritty*" \
-                      -delete
-                    find "$d" -type d -empty -delete
-                  done
+          #       # ncurses: keep only common terminal definitions
+          #       find layer/nix/store -path "*/share/terminfo" -type d | while read d; do
+          #         find "$d" -type f \
+          #           ! -name "xterm*" ! -name "linux" ! -name "dumb" \
+          #           ! -name "screen*" ! -name "vt100" ! -name "vt220" \
+          #           ! -name "tmux*" ! -name "alacritty*" \
+          #           -delete
+          #         find "$d" -type d -empty -delete
+          #       done
 
-                  # man, doc, info, locale across all packages
-                  find layer/nix/store -maxdepth 3 -path "*/share/man" -type d -exec rm -rf {} + 2>/dev/null || true
-                  find layer/nix/store -maxdepth 3 -path "*/share/doc" -type d -exec rm -rf {} + 2>/dev/null || true
-                  find layer/nix/store -maxdepth 3 -path "*/share/info" -type d -exec rm -rf {} + 2>/dev/null || true
-                  find layer/nix/store -maxdepth 3 -path "*/share/locale" -type d -exec rm -rf {} + 2>/dev/null || true
+          #       # man, doc, info, locale across all packages
+          #       find layer/nix/store -maxdepth 3 -path "*/share/man" -type d -exec rm -rf {} + 2>/dev/null || true
+          #       find layer/nix/store -maxdepth 3 -path "*/share/doc" -type d -exec rm -rf {} + 2>/dev/null || true
+          #       find layer/nix/store -maxdepth 3 -path "*/share/info" -type d -exec rm -rf {} + 2>/dev/null || true
+          #       find layer/nix/store -maxdepth 3 -path "*/share/locale" -type d -exec rm -rf {} + 2>/dev/null || true
 
-                  # repack layer and fix digests
-                  tar cf "$layer" -C layer .
-                  rm -rf layer
+          #       # repack layer and fix digests
+          #       tar cf "$layer" -C layer .
+          #       rm -rf layer
 
-                  newdigest="sha256:$(sha256sum "$layer" | cut -d" " -f1)"
-                  configfile=$(jq -r ".[0].Config" manifest.json)
-                  jq ".rootfs.diff_ids = [\"$newdigest\"]" "$configfile" > config_new.json
+          #       newdigest="sha256:$(sha256sum "$layer" | cut -d" " -f1)"
+          #       configfile=$(jq -r ".[0].Config" manifest.json)
+          #       jq ".rootfs.diff_ids = [\"$newdigest\"]" "$configfile" > config_new.json
 
-                  newconfighash=$(sha256sum config_new.json | cut -d" " -f1)
-                  mv config_new.json "$newconfighash.json"
-                  jq ".[0].Config = \"$newconfighash.json\"" manifest.json > manifest_new.json
-                  mv manifest_new.json manifest.json
-                  rm -f "$configfile"
+          #       newconfighash=$(sha256sum config_new.json | cut -d" " -f1)
+          #       mv config_new.json "$newconfighash.json"
+          #       jq ".[0].Config = \"$newconfighash.json\"" manifest.json > manifest_new.json
+          #       mv manifest_new.json manifest.json
+          #       rm -f "$configfile"
 
-                  tar cf - * | pigz > $out
-                '
-              '';
+          #       tar cf - * | pigz > $out
+          #     '
+          #   '';
           pkgsForCapability =
             capability:
             import nixpkgs {
@@ -319,12 +324,14 @@
               (builtins.map (
                 serviceName:
                 let
-                  name = if builtins.isNull capability then serviceName else "${serviceName}-${capability}";
+                  suffix = if builtins.isNull capability then "" else "-${capability}";
+                  name = "${serviceName}${suffix}";
                 in
                 {
                   name = name;
                   value = cudaPackage {
                     name = name;
+                    baseName = "base${suffix}";
                     extraPackages = services."${serviceName}";
                     pkgs = pkgs;
                   };
