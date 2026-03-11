@@ -39,6 +39,8 @@ HOST_ID=$(echo "$JSON" | jq '.[0]["host_id"]' -r)
 MACHINE_ID=$(echo "$JSON" | jq '.[0]["machine_id"]' -r)
 GEOLOCATION=$(echo "$JSON" | jq '.[0]["geolocation"]' -r)
 
+COMPUTE_CAP=$(echo "$JSON" | jq '.[0]["compute_cap"]' -r)
+
 DOWNLOAD_SPEED=$(echo "$JSON" | jq '.[0]["inet_down"]' -r)
 DOWNLOAD_COST=$(echo "$JSON" | jq '.[0]["inet_down_cost"]' -r)
 UPLOAD_COST=$(echo "$JSON" | jq '.[0]["inet_up_cost"]' -r)
@@ -50,6 +52,7 @@ log "Offer $OFFER_ID:
   Location: $GEOLOCATION
   Cost: $COST USD/h
   Maximum CUDA: $CUDA_MAX_GOOD
+  Compute capability: $COMPUTE_CAP
   Download speed: $DOWNLOAD_SPEED Mb/s ($DOWNLOAD_COST USD/GB)
   Cost of downloading $DISK_SIZE GB: $(python -c "print(f"'"'"{0.018 * $UPLOAD_COST * $DISK_SIZE + $DOWNLOAD_COST * $DISK_SIZE:.2f}"'"'")") USD"
 ask "Launch? [yn]"

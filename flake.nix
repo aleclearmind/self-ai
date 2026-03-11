@@ -279,33 +279,59 @@
           #   '';
           pkgsForCapability =
             capability:
-            import nixpkgs {
-              inherit system;
-              config = {
-                allowUnfree = true;
-                cudaSupport = true;
-              }
-              // (
-                if builtins.isNull capability then
-                  { }
-                else
-                  {
-                    cudaCapabilities = [ capability ];
-                    cudaForwardCompat = false;
-                  }
-              );
-            };
-          capabilities =
             let
-              genericPkgs = import nixpkgs {
+              pkgs = import nixpkgs {
                 inherit system;
                 config = {
                   allowUnfree = true;
                   cudaSupport = true;
-                };
+                  rocmSupport = false;
+                }
+                // (
+                  if builtins.isNull capability then
+                    { }
+                  else
+                    {
+                      cudaCapabilities = [ capability ];
+                      cudaForwardCompat = false;
+                    }
+                );
               };
+              cudaCapabilityToInfo = pkgs._cuda.db.cudaCapabilityToInfo;
+              info =
+                if builtins.hasAttr "${capability}a" cudaCapabilityToInfo then
+                  cudaCapabilityToInfo."${capability}a"
+                else
+                  cudaCapabilityToInfo."${capability}";
+              maxVersion = info.maxCudaMajorMinorVersion;
+              version = if builtins.isNull maxVersion then "13.0" else maxVersion;
+              suffix = lib.strings.replaceString "." "_" version;
             in
-            [ null ] ++ builtins.attrNames genericPkgs._cuda.db.cudaCapabilityToInfo;
+            pkgs."cudaPackages_${suffix}".pkgs;
+
+          capabilities = [
+            "6.0"
+            "6.1"
+            "7.0"
+            "7.5"
+            "8.0"
+            "8.6"
+            "8.9"
+            "9.0"
+            "10.0"
+            "12.0"
+          ];
+          # capabilities =
+          #   let
+          #     genericPkgs = import nixpkgs {
+          #       inherit system;
+          #       config = {
+          #         allowUnfree = true;
+          #         cudaSupport = true;
+          #       };
+          #     };
+          #   in
+          #   [ null ] ++ builtins.attrNames genericPkgs._cuda.db.cudaCapabilityToInfo;
           servicesForPkgs = pkgs: {
             whisper = [ pkgs.whisper-cpp ];
             llama = [ pkgs.llama-cpp ];
