@@ -1,5 +1,30 @@
+when:
+  branch: master
+  event: push
+
 steps:
-- name: hello
-  image: alpine
-  commands:
-  - echo "Hello, World! Yay."
+  - name: Build and push image
+    image: nixos/nix:latest
+    commands:
+      - echo "extra-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org" >> /etc/nix/nix.conf
+      - echo "extra-trusted-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org" >> /etc/nix/nix.conf
+      - echo "extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
+cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=" >> /etc/nix/nix.conf
+      - echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
+      - nix profile install nixpkgs#podman nixpkgs#jq
+      - echo "$GITHUB_PACKAGES_TOKEN" | podman login ghcr.io -u "$CI_REPO_OWNER" --password-stdin
+      - |
+        for PACKAGE in $(nix flake show --json | jq -r '.packages["x86_64-linux"] | keys | .[]' | grep whisper); do
+          echo "Building $PACKAGE" > /dev/stderr
+          nix build .#"$PACKAGE" -L
+
+          echo "Pushing $PACKAGE" > /dev/stderr
+          IMAGE_NAME="vast-ai-nix-$PACKAGE"
+          IMAGE="ghcr.io/$CI_REPO_OWNER/$IMAGE_NAME"
+          podman load < result
+          podman tag "$IMAGE_NAME:latest" "$IMAGE:latest"
+          podman tag "$IMAGE_NAME:latest" "$IMAGE:$CI_COMMIT_SHA"
+          podman push "$IMAGE:latest"
+          podman push "$IMAGE:$CI_COMMIT_SHA"
+        done
+    secrets: [GITHUB_PACKAGES_TOKEN]
