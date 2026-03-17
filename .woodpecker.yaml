@@ -31,4 +31,3 @@ steps:
           podman push "$IMAGE:latest"
           podman push "$IMAGE:$CI_COMMIT_SHA"
         done
-    secrets: [GITHUB_PACKAGES_TOKEN]
