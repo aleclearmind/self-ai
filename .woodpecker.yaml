@@ -8,8 +8,7 @@ steps:
     commands:
       - echo "extra-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org" >> /etc/nix/nix.conf
       - echo "extra-trusted-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org" >> /etc/nix/nix.conf
-      - echo "extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs=
-cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=" >> /etc/nix/nix.conf
+      - echo "extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=" >> /etc/nix/nix.conf
       - echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
       - nix profile install nixpkgs#podman nixpkgs#jq
       - echo "$GITHUB_PACKAGES_TOKEN" | podman login ghcr.io -u "$CI_REPO_OWNER" --password-stdin
