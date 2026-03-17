@@ -5,6 +5,11 @@ when:
 steps:
   - name: Build and push image
     image: nixos/nix:latest
+
+    environment:
+      GITHUB_PACKAGES_TOKEN:
+        from_secret: GITHUB_PACKAGES_TOKEN
+
     commands:
       - echo "extra-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org" >> /etc/nix/nix.conf
       - echo "extra-trusted-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org" >> /etc/nix/nix.conf
