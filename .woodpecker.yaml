@@ -22,7 +22,14 @@ steps:
         for PACKAGE in $(nix flake show --json | jq -r '.packages["x86_64-linux"] | keys | .[]' | grep whisper); do
           echo "Building $PACKAGE" > /dev/stderr
           # nix build .#"\"$PACKAGE\"" -L
-          nix build nixpkgs#hello
+          nix build --impure --expr '                                                                                                                                                                     let pkgs = import <nixpkgs> {};
+          in pkgs.dockerTools.buildImage {
+            name = "hello";
+            tag = "latest";
+            copyToRoot = [ pkgs.hello ];
+            config.Cmd = [ "${pkgs.hello}/bin/hello" ];
+          }
+        '
 
           echo "Pushing $PACKAGE" > /dev/stderr
           IMAGE_NAME="vast-ai-nix-$PACKAGE"
