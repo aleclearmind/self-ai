@@ -29,7 +29,7 @@ steps:
             copyToRoot = [ pkgs.hello ];
             config.Cmd = [ "${pkgs.hello}/bin/hello" ];
           }
-        '
+          '
 
           echo "Pushing $PACKAGE" > /dev/stderr
           IMAGE_NAME="vast-ai-nix-$PACKAGE"
