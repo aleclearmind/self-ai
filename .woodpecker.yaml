@@ -24,6 +24,6 @@ steps:
           echo "Pushing $PACKAGE" > /dev/stderr
           IMAGE_NAME="vast-ai-nix-$PACKAGE"
           IMAGE="ghcr.io/$CI_REPO_OWNER/$IMAGE_NAME"
-          skopeo copy --dest-creds="$CI_REPO_OWNER:$GHCR_TOKEN" docker-archive:result "docker://$IMAGE:latest"
-          skopeo copy --dest-creds="$CI_REPO_OWNER:$GHCR_TOKEN" docker-archive:result "docker://$IMAGE:$CI_COMMIT_SHA"
+          skopeo --insecure-policy copy --dest-creds="$CI_REPO_OWNER:$GHCR_TOKEN" docker-archive:result "docker://$IMAGE:latest"
+          skopeo --insecure-policy copy --dest-creds="$CI_REPO_OWNER:$GHCR_TOKEN" docker-archive:result "docker://$IMAGE:$CI_COMMIT_SHA"
         done
