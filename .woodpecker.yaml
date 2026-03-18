@@ -29,7 +29,7 @@ steps:
             name = "hello";
             tag = "latest";
             copyToRoot = [ pkgs.hello ];
-            config.Cmd = [ "${pkgs.hello}/bin/hello" ];
+            config.Cmd = [ "\${pkgs.hello}/bin/hello" ];
           }
           '
 
