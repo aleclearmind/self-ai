@@ -13,11 +13,7 @@ steps:
         from_secret: ATTIC_TOKEN
 
     commands:
-      - echo "extra-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org" >> /etc/nix/nix.conf
-      - echo "extra-trusted-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org" >> /etc/nix/nix.conf
-      - echo "extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=" >> /etc/nix/nix.conf
-      - echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
-      - nix profile add nixpkgs#{skopeo,jq,attic-client}
+      - nix profile add nixpkgs/nixos-25.11#{skopeo,jq,attic-client}
       - |
         set -euo pipefail
         set -x
@@ -32,13 +28,13 @@ steps:
         attic login "$ATTIC_ENDPOINT" https://clearmind.me/attic/ "$ATTIC_TOKEN"
         attic use "$ATTIC_CACHE"
 
-        for PACKAGE in $(nix flake show --json | jq -r '.packages["x86_64-linux"] | keys | .[]' | grep whisper); do
+        for PACKAGE in $(nix flake show --json | jq -r '.packages["x86_64-linux"] | keys | .[]' | grep whisper-6.0); do
 
           log "Building $PACKAGE"
           nix build .#"\"$PACKAGE\"" -L
 
           log "Pushing $PACKAGE to the nix cache"
-          attic push "$ATTIC_CACHE" --ignore-upstream-cache-filter result
+          attic push "$ATTIC_CACHE" result
 
           log "Pushing $PACKAGE to ghcr.io"
           IMAGE_NAME="vast-ai-nix-$PACKAGE"

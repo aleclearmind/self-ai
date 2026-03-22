@@ -116,6 +116,11 @@
 
               entrypoint = pkgs.writeShellScriptBin "entrypoint" ''
                 set -euo pipefail
+                set -x
+
+                function log() {
+                  echo "$1" > /dev/stderr
+                }
 
                 mkdir -p /root/.ssh
                 chmod 700 /root/.ssh
@@ -129,7 +134,7 @@
                 mkdir -p /run/sshd
 
                 if [ -z "''${SSH_PUBLIC_KEY:-}" ]; then
-                  echo "ERROR: SSH_PUBLIC_KEY environment variable is not set" >&2
+                  log "ERROR: SSH_PUBLIC_KEY environment variable is not set"
                   exit 1
                 fi
 
@@ -150,12 +155,13 @@
                 ${pkgs.util-linux}/bin/mount | ${pkgs.gnugrep}/bin/grep -i .so."$DRIVER_VERSION" | ${pkgs.gawk}/bin/awk '{ print $3 }'| while read FILE; do
                   LINK=$(dirname "$FILE")/$(basename "$FILE" ".$DRIVER_VERSION").1
                   if ! test -e "$LINK"; then
-                    echo "Creating $LINK"
+                    log "Creating $LINK"
                     ln -s "$FILE" "$LINK"
                   fi
                 done
 
-                exec ${pkgs.openssh}/bin/sshd -D -e -f /etc/ssh/sshd_config
+                log "Starting SSH daemon"
+                ${pkgs.openssh}/bin/sshd -D -e -f /etc/ssh/sshd_config
               '';
 
               etcProfile = pkgs.writeTextDir "etc/profile" ''

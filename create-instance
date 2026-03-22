@@ -39,7 +39,7 @@ HOST_ID=$(echo "$JSON" | jq '.[0]["host_id"]' -r)
 MACHINE_ID=$(echo "$JSON" | jq '.[0]["machine_id"]' -r)
 GEOLOCATION=$(echo "$JSON" | jq '.[0]["geolocation"]' -r)
 
-COMPUTE_CAP=$(echo "$JSON" | jq '.[0]["compute_cap"]' -r)
+COMPUTE_CAP=$(echo "$JSON" | jq '.[0]["compute_cap"] | . / 100 | tostring | if test("\\.") then . else . + ".0" end' -r)
 
 DOWNLOAD_SPEED=$(echo "$JSON" | jq '.[0]["inet_down"]' -r)
 DOWNLOAD_COST=$(echo "$JSON" | jq '.[0]["inet_down_cost"]' -r)
@@ -74,7 +74,7 @@ else
     fail "Don't know what tag to use for CUDA $CUDA_MAX_GOOD"
 fi
 
-IMAGE=ghcr.io/aleclearmind/vast-ai-nix
+IMAGE=ghcr.io/aleclearmind/vast-ai-nix-whisper-"$COMPUTE_CAP"
 INSTANCE_OUTPUT=$(
     vastai create instance \
            "$OFFER_ID" \
