@@ -287,9 +287,9 @@
           cupyNoCudnnOverlay = final: prev: {
             pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
               (pyFinal: pyPrev: {
-                cupy = pyPrev.cupy.override (prevArgs: {
-                  cudaPackages = prevArgs.cudaPackages.overrideScope (_: _: { cudnn = null; });
-                });
+                cupy = pyFinal.callPackage (pyFinal.pkgs.path + "/pkgs/development/python-modules/cupy") {
+                  cudaPackages = pyFinal.pkgs.cudaPackages.overrideScope (_: _: { cudnn = null; });
+                };
               })
             ];
           };
