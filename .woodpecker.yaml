@@ -13,6 +13,7 @@ steps:
         from_secret: ATTIC_TOKEN
 
     commands:
+      - echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
       - nix profile add nixpkgs/nixos-25.11#{skopeo,jq,attic-client}
       - |
         set -euo pipefail
