@@ -173,26 +173,27 @@
                 name = "vast-ai-nix-${baseName}";
                 tag = "latest";
 
-                copyToRoot = [
+                copyToRoot = with pkgs; [
                   # Common
-                  pkgs.bash
-                  pkgs.coreutils
-                  pkgs.util-linux
-                  pkgs.gnugrep
-                  pkgs.gawk
-                  pkgs.gnused
-                  pkgs.cacert
-                  pkgs.tini
-                  pkgs.python313Packages.huggingface-hub
+                  bash
+                  coreutils
+                  util-linux
+                  gnugrep
+                  gawk
+                  gnused
+                  cacert
+                  tini
+                  python313Packages.huggingface-hub
+                  wget
 
                   # Debug
-                  pkgs.nix
-                  pkgs.nano
-                  pkgs.curl
-                  pkgs.strace
-                  pkgs.findutils
-                  pkgs.binutils
-                  pkgs.less
+                  nix
+                  nano
+                  curl
+                  strace
+                  findutils
+                  binutils
+                  less
 
                   # System
                   opensshBin
@@ -339,7 +340,7 @@
           #   in
           #   [ null ] ++ builtins.attrNames genericPkgs._cuda.db.cudaCapabilityToInfo;
           servicesForPkgs = pkgs: {
-            whisper = [ pkgs.whisper-cpp ];
+            whisper = [ pkgs.ffmpeg-headless pkgs.whisper-cpp ];
             llama = [ pkgs.llama-cpp ];
             vllm = [ pkgs.vllm ];
             ollama = [ pkgs.ollama-cuda ];

@@ -5,8 +5,11 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source "$SCRIPT_DIR/common"
 
 if test "$#" -ne 2; then
-    fail "Usage: $0 QUERY DISK_SIZE"
+    fail "Usage: $0 IMAGE QUERY DISK_SIZE"
 fi
+
+IMAGE="$1"
+shift
 
 QUERY="$1"
 shift
@@ -24,57 +27,54 @@ if ! echo "$JSON" | jq > /dev/null; then
     fail "Invalid JSON: $JSON"
 fi
 
-COST=$(echo "$JSON" | jq '.[0]["dph_total"] *100|round/100' -r)
-OFFER_ID=$(echo "$JSON" | jq '.[0]["id"]' -r)
-CUDA_MAX_GOOD=$(echo "$JSON" | jq '.[0]["cuda_max_good"]' -r)
-CPU_NAME=$(echo "$JSON" | jq '.[0]["cpu_name"] | trim' -r)
-CPU_RAM=$(echo "$JSON" | jq '.[0]["cpu_ram"]' -r)
-GPU_COUNT=$(echo "$JSON" | jq '.[0]["num_gpus"]' -r)
-GPU_NAME=$(echo "$JSON" | jq '.[0]["gpu_name"] | trim' -r)
-GPU_RAM=$(echo "$JSON" | jq '.[0]["gpu_ram"]' -r)
-GPU_TOTAL_RAM=$(echo "$JSON" | jq '.[0]["gpu_total_ram"]' -r)
-# shellcheck disable=SC2034
-HOST_ID=$(echo "$JSON" | jq '.[0]["host_id"]' -r)
-# shellcheck disable=SC2034
-MACHINE_ID=$(echo "$JSON" | jq '.[0]["machine_id"]' -r)
-GEOLOCATION=$(echo "$JSON" | jq '.[0]["geolocation"]' -r)
+ACCEPT=0
+INDEX=0
+while test "$ACCEPT" -eq 0; do
+  COST=$(echo "$JSON" | jq '.['"$INDEX"']["dph_total"] *100|round/100' -r)
+  OFFER_ID=$(echo "$JSON" | jq '.['"$INDEX"']["id"]' -r)
+  CUDA_MAX_GOOD=$(echo "$JSON" | jq '.['"$INDEX"']["cuda_max_good"]' -r)
+  CPU_NAME=$(echo "$JSON" | jq '.['"$INDEX"']["cpu_name"] | trim | gsub("[®™©]"; "")' -r)
+  CPU_RAM=$(echo "$JSON" | jq '.['"$INDEX"']["cpu_ram"]' -r)
+  GPU_COUNT=$(echo "$JSON" | jq '.['"$INDEX"']["num_gpus"]' -r)
+  GPU_NAME=$(echo "$JSON" | jq '.['"$INDEX"']["gpu_name"] | trim' -r)
+  GPU_RAM=$(echo "$JSON" | jq '.['"$INDEX"']["gpu_ram"]' -r)
+  GPU_TOTAL_RAM=$(echo "$JSON" | jq '.['"$INDEX"']["gpu_total_ram"]' -r)
+  # shellcheck disable=SC2034
+  HOST_ID=$(echo "$JSON" | jq '.['"$INDEX"']["host_id"]' -r)
+  # shellcheck disable=SC2034
+  MACHINE_ID=$(echo "$JSON" | jq '.['"$INDEX"']["machine_id"]' -r)
+  GEOLOCATION=$(echo "$JSON" | jq '.['"$INDEX"']["geolocation"] | gsub("^[, ]+|[, ]+$"; "")' -r)
 
-COMPUTE_CAP=$(echo "$JSON" | jq '.[0]["compute_cap"] | . / 100 | tostring | if test("\\.") then . else . + ".0" end' -r)
+  COMPUTE_CAP=$(echo "$JSON" | jq '.['"$INDEX"']["compute_cap"] | . / 100 | tostring | if test("\\.") then . else . + ".0" end' -r)
 
-DOWNLOAD_SPEED=$(echo "$JSON" | jq '.[0]["inet_down"]' -r)
-DOWNLOAD_COST=$(echo "$JSON" | jq '.[0]["inet_down_cost"]' -r)
-UPLOAD_COST=$(echo "$JSON" | jq '.[0]["inet_up_cost"]' -r)
+  DOWNLOAD_SPEED=$(echo "$JSON" | jq '.['"$INDEX"']["inet_down"]' -r)
+  DOWNLOAD_COST=$(echo "$JSON" | jq '.['"$INDEX"']["inet_down_cost"] * 10000 | round / 10000' -r)
+  UPLOAD_COST=$(echo "$JSON" | jq '.['"$INDEX"']["inet_up_cost"] * 10000 | round / 10000' -r)
+  FULL_SIZE_DOWNLOAD_SECONDS=$(python -c "print(int($DISK_SIZE * 8 * 1024 / $DOWNLOAD_SPEED))")
+  FULL_SIZE_DOWNLOAD_TRAFFIC_COST=$(python -c "print(0.018 * $UPLOAD_COST * $DISK_SIZE + $DOWNLOAD_COST * $DISK_SIZE)")
+  FULL_SIZE_DOWNLOAD_RENTAL_COST=$(python -c "print($COST * ($FULL_SIZE_DOWNLOAD_SECONDS / (60 * 60)))")
+  FULL_SIZE_DOWNLOAD_COST=$(python -c "print($FULL_SIZE_DOWNLOAD_TRAFFIC_COST + $FULL_SIZE_DOWNLOAD_RENTAL_COST)")
 
+  log "Offer $OFFER_ID:
+    GPU: ${GPU_COUNT}x $GPU_NAME (${GPU_COUNT}x $((GPU_RAM / 1024)) GB = $((GPU_TOTAL_RAM / 1024)) GB)
+    CPU: $CPU_NAME ($((CPU_RAM / 1024)) GB)
+    Location: $GEOLOCATION
+    Cost: $COST USD/h
+    Maximum CUDA: $CUDA_MAX_GOOD
+    Compute capability: $COMPUTE_CAP
+    Download speed: $DOWNLOAD_SPEED Mb/s
+    Download cost: $DOWNLOAD_COST USD/GB
+    Time for downloading $DISK_SIZE GB: $(python -c "print(f'{$FULL_SIZE_DOWNLOAD_SECONDS // 3600}h {$FULL_SIZE_DOWNLOAD_SECONDS % 3600 // 60}m')")
+    Cost of $DISK_SIZE GB in traffic: $(python -c "print(f"'"'"{$FULL_SIZE_DOWNLOAD_TRAFFIC_COST:.2f}"'"'")") USD
+    Total cost of downloading $DISK_SIZE GB: $(python -c "print(f"'"'"{$FULL_SIZE_DOWNLOAD_COST:.2f}"'"'")") USD"
+  if ask "Launch? [yn]"; then
+    ACCEPT=1
+  fi
+  log ""
+  INDEX=$((INDEX+1))
+done
 
-log "Offer $OFFER_ID:
-  GPU: ${GPU_COUNT}x $GPU_NAME ($((GPU_RAM / 1024)) GB each, $((GPU_TOTAL_RAM / 1024)) GB total)
-  CPU: $CPU_NAME ($((CPU_RAM / 1024)) GB)
-  Location: $GEOLOCATION
-  Cost: $COST USD/h
-  Maximum CUDA: $CUDA_MAX_GOOD
-  Compute capability: $COMPUTE_CAP
-  Download speed: $DOWNLOAD_SPEED Mb/s ($DOWNLOAD_COST USD/GB)
-  Cost of downloading $DISK_SIZE GB: $(python -c "print(f"'"'"{0.018 * $UPLOAD_COST * $DISK_SIZE + $DOWNLOAD_COST * $DISK_SIZE:.2f}"'"'")") USD"
-ask "Launch? [yn]"
-log ""
-
-if test "$CUDA_MAX_GOOD" == "12.8"; then
-    IMAGE=vastai/base-image:cuda-12.8.1-auto
-    IMAGE=nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
-elif test "$CUDA_MAX_GOOD" == "12.4"; then
-    IMAGE=vastai/base-image:cuda-12.4.1-auto
-    IMAGE=nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
-elif test "$CUDA_MAX_GOOD" == "13.0"; then
-    IMAGE=vastai/base-image:cuda-12.4.1-auto
-    IMAGE=nvidia/cuda:13.0.2-cudnn-runtime-ubuntu24.04
-elif test "$CUDA_MAX_GOOD" == "12.9"; then
-    IMAGE=vastai/base-image:cuda-12.4.1-auto
-    IMAGE=nvidia/cuda:12.9.1-cudnn-runtime-ubuntu24.04
-else
-    fail "Don't know what tag to use for CUDA $CUDA_MAX_GOOD"
-fi
-
-IMAGE=ghcr.io/aleclearmind/vast-ai-nix-whisper-"$COMPUTE_CAP"
+IMAGE=$(echo "$IMAGE" | sed 's/%COMPUTE_CAP%/'"$COMPUTE_CAP"'/')
 INSTANCE_OUTPUT=$(
     vastai create instance \
            "$OFFER_ID" \
@@ -110,11 +110,8 @@ while test "$("${SSH[@]}" 'echo ready' 2> /dev/null)" != "ready"; do
     sleep 1
 done
 
-log "Cleaning up configuration"
-stderr "${SSH[@]}" 'touch /root/.no_auto_tmux; rm /etc/banner /etc/update-motd.d/*; echo "PrintLastLog no" >> /etc/ssh/sshd_config; pkill sshd -SIGHUP' || true
-
 log "GPU info"
-stderr "${SSH[@]}" nvidia-smi
+stderr "${SSH[@]}" /nix/store/*-glibc-*/lib/ld-linux-x86-64.so.2 /usr/bin/nvidia-smi
 
 log "SSH available: ${SSH[*]}"
 echo "$SSH_URL"
