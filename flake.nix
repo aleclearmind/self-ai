@@ -284,7 +284,7 @@
           #       tar cf - * | pigz > $out
           #     '
           #   '';
-          cupyNoCudnnOverlay = final: prev: {
+          cudaFixesOverlay = final: prev: {
             pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
               (pyFinal: pyPrev: {
                 cupy = pyFinal.callPackage (pyFinal.pkgs.path + "/pkgs/development/python-modules/cupy") {
@@ -292,13 +292,26 @@
                 };
               })
             ];
+            # cuda_compat has no source on x86_64 but allowUnsupportedSystem makes
+            # meta.available = true, causing the autoAddCudaCompatRunpath hook to
+            # try building it. Fix via _cuda.extensions which propagates into all
+            # CUDA package sets including rebound ones.
+            _cuda = prev._cuda.extend (_: cprev: {
+              extensions = cprev.extensions ++ [
+                (_: csPrev: {
+                  cuda_compat = csPrev.cuda_compat.overrideAttrs (old: {
+                    meta = old.meta // { broken = true; };
+                  });
+                })
+              ];
+            });
           };
           pkgsForCapability =
             capability:
             let
               pkgs = import nixpkgs {
                 inherit system;
-                overlays = [ cupyNoCudnnOverlay ];
+                overlays = [ cudaFixesOverlay ];
                 config = {
                   allowUnsupportedSystem = true;
                   allowUnfree = true;
