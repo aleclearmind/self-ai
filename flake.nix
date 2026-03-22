@@ -341,7 +341,10 @@
           #   in
           #   [ null ] ++ builtins.attrNames genericPkgs._cuda.db.cudaCapabilityToInfo;
           servicesForPkgs = pkgs: {
-            whisper = [ pkgs.ffmpeg-headless pkgs.whisper-cpp ];
+            whisper = [
+              pkgs.ffmpeg-headless
+              pkgs.whisper-cpp
+            ];
             llama = [ pkgs.llama-cpp ];
             vllm = [ pkgs.vllm ];
             ollama = [ pkgs.ollama-cuda ];
