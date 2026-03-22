@@ -152,6 +152,7 @@
 
                 DRIVER_VERSION=$(cat /proc/driver/nvidia/version | ${pkgs.gnugrep}/bin/grep Module | ${pkgs.gnused}/bin/sed 's|.*Module.*  \([0-9.]\+\) .*|\1|')
 
+                if false; then
                 ${pkgs.util-linux}/bin/mount | ${pkgs.gnugrep}/bin/grep -i .so."$DRIVER_VERSION" | ${pkgs.gawk}/bin/awk '{ print $3 }'| while read FILE; do
                   LINK=$(dirname "$FILE")/$(basename "$FILE" ".$DRIVER_VERSION").1
                   if ! test -e "$LINK"; then
@@ -159,6 +160,7 @@
                     ln -s "$FILE" "$LINK"
                   fi
                 done
+                fi
 
                 log "Starting SSH daemon"
                 ${pkgs.openssh}/bin/sshd -D -e -f /etc/ssh/sshd_config
