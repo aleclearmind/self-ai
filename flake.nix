@@ -290,6 +290,7 @@
               pkgs = import nixpkgs {
                 inherit system;
                 config = {
+                  allowUnsupportedSystem = true;
                   allowUnfree = true;
                   cudaSupport = true;
                   rocmSupport = false;
