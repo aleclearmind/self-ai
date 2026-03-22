@@ -284,11 +284,21 @@
           #       tar cf - * | pigz > $out
           #     '
           #   '';
+          cupyNoCudnnOverlay = final: prev: {
+            pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
+              (pyFinal: pyPrev: {
+                cupy = pyPrev.cupy.override (prevArgs: {
+                  cudaPackages = prevArgs.cudaPackages.overrideScope (_: _: { cudnn = null; });
+                });
+              })
+            ];
+          };
           pkgsForCapability =
             capability:
             let
               pkgs = import nixpkgs {
                 inherit system;
+                overlays = [ cupyNoCudnnOverlay ];
                 config = {
                   allowUnsupportedSystem = true;
                   allowUnfree = true;
