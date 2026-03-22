@@ -150,17 +150,15 @@
                     -f /etc/ssh/ssh_host_rsa_key -N ""
                 fi
 
-                DRIVER_VERSION=$(cat /proc/driver/nvidia/version | ${pkgs.gnugrep}/bin/grep Module | ${pkgs.gnused}/bin/sed 's|.*Module.*  \([0-9.]\+\) .*|\1|')
+                DRIVER_VERSION=$(cat /proc/driver/nvidia/version | ${pkgs.gnused}/bin/sed -n 's/.*Module.* \([0-9]\+\(\.[0-9]\+\)\+\).*/\1/p')
 
-                if false; then
-                ${pkgs.util-linux}/bin/mount | ${pkgs.gnugrep}/bin/grep -i .so."$DRIVER_VERSION" | ${pkgs.gawk}/bin/awk '{ print $3 }'| while read FILE; do
+                ${pkgs.util-linux}/bin/mount | ${pkgs.gnugrep}/bin/grep -F .so."$DRIVER_VERSION" | ${pkgs.gawk}/bin/awk '{ print $3 }'| while read FILE; do
                   LINK=$(dirname "$FILE")/$(basename "$FILE" ".$DRIVER_VERSION").1
                   if ! test -e "$LINK"; then
                     log "Creating $LINK"
                     ln -s "$FILE" "$LINK"
                   fi
                 done
-                fi
 
                 log "Starting SSH daemon"
                 ${pkgs.openssh}/bin/sshd -D -e -f /etc/ssh/sshd_config
