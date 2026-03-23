@@ -32,10 +32,18 @@ steps:
         for PACKAGE in $(nix flake show --json | jq -r '.packages["x86_64-linux"] | keys | .[]' | grep -E 'vllm-6.1|whisper-6.1'); do
 
           log "Building $PACKAGE"
-          nix build .#"\"$PACKAGE\"" -L
+          if nix build .#"\"$PACKAGE\"" -L; then
+            RESULT=0
+          else
+            RESULT=1
+          fi
 
           log "Pushing $PACKAGE to the nix cache"
-          attic push "$ATTIC_CACHE" result
+          find /nix/store -maxdepth 1 -type d -not -name "*.drv" | xargs -n100 attic push "$ATTIC_CACHE"
+
+          if test "$RESULT" -ne 0; then
+            exit "$RESULT"
+          fi
 
           log "Pushing $PACKAGE to ghcr.io"
           IMAGE_NAME="vast-ai-nix-$PACKAGE"
