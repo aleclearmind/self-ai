@@ -287,24 +287,32 @@
           cudaFixesOverlay = final: prev: {
             pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
               (pyFinal: pyPrev: {
-                cupy = pyFinal.callPackage (pyFinal.pkgs.path + "/pkgs/development/python-modules/cupy") {
-                  cudaPackages = pyFinal.pkgs.cudaPackages.overrideScope (_: _: { cudnn = null; });
-                };
+                cupy =
+                  (pyFinal.callPackage (pyFinal.pkgs.path + "/pkgs/development/python-modules/cupy") {
+                    cudaPackages = pyFinal.pkgs.cudaPackages.overrideScope (_: _: { cudnn = null; });
+                  }).overrideAttrs
+                    (_: {
+                      CUPY_NVCC_GENERATE_CODE = "arch=compute_61,code=sm_61";
+                    });
               })
             ];
             # cuda_compat has no source on x86_64 but allowUnsupportedSystem makes
             # meta.available = true, causing the autoAddCudaCompatRunpath hook to
             # try building it. Fix via _cuda.extensions which propagates into all
             # CUDA package sets including rebound ones.
-            _cuda = prev._cuda.extend (_: cprev: {
-              extensions = cprev.extensions ++ [
-                (_: csPrev: {
-                  cuda_compat = csPrev.cuda_compat.overrideAttrs (old: {
-                    meta = old.meta // { broken = true; };
-                  });
-                })
-              ];
-            });
+            _cuda = prev._cuda.extend (
+              _: cprev: {
+                extensions = cprev.extensions ++ [
+                  (_: csPrev: {
+                    cuda_compat = csPrev.cuda_compat.overrideAttrs (old: {
+                      meta = old.meta // {
+                        broken = true;
+                      };
+                    });
+                  })
+                ];
+              }
+            );
           };
           pkgsForCapability =
             capability:
