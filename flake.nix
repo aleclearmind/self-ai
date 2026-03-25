@@ -286,7 +286,21 @@
           #   '';
           cudaFixesOverlay = final: prev: {
             pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-              (pyFinal: pyPrev: {
+              # Disable tests for all Python packages — they're slow, often need
+              # hardware (CUDA), and aren't useful when building docker images.
+              (_: pyPrev:
+                lib.mapAttrs (
+                  _: pkg:
+                  if lib.isDerivation pkg then
+                    pkg.overridePythonAttrs {
+                      doCheck = false;
+                      pythonImportsCheck = [ ];
+                    }
+                  else
+                    pkg
+                ) pyPrev
+              )
+             (pyFinal: pyPrev: {
                 cupy =
                   (pyFinal.callPackage (pyFinal.pkgs.path + "/pkgs/development/python-modules/cupy") {
                     cudaPackages = pyFinal.pkgs.cudaPackages.overrideScope (_: _: { cudnn = null; });
