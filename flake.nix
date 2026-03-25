@@ -294,8 +294,10 @@
                     (_: {
                       CUPY_NVCC_GENERATE_CODE = "arch=compute_61,code=sm_61";
                     });
-                vllm = pyPrev.vllm.overridePythonAttrs (old: {
-                  dependencies = builtins.filter (dep: (dep.pname or "") != "bitsandbytes") old.dependencies;
+                bitsandbytes = pyPrev.bitsandbytes.overridePythonAttrs (old: {
+                  cmakeFlags = (old.cmakeFlags or [ ]) ++ [
+                    (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES" pyFinal.pkgs.cudaPackages.flags.cmakeCudaArchitecturesString)
+                  ];
                 });
 
               })
