@@ -294,6 +294,10 @@
                     (_: {
                       CUPY_NVCC_GENERATE_CODE = "arch=compute_61,code=sm_61";
                     });
+                vllm = pyPrev.vllm.overridePythonAttrs (old: {
+                  dependencies = builtins.filter (dep: (dep.pname or "") != "bitsandbytes") old.dependencies;
+                });
+
               })
             ];
             # cuda_compat has no source on x86_64 but allowUnsupportedSystem makes
