@@ -299,7 +299,7 @@
                     (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES" pyFinal.pkgs.cudaPackages.flags.cmakeCudaArchitecturesString)
                   ];
                 });
-                = pyPrev.jax.overrideAttrs {
+                jax = pyPrev.jax.overrideAttrs {
                   doCheck = false;
                   pythonImportsCheck = [ ];
                 };
