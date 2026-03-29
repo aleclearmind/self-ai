@@ -383,6 +383,7 @@
                 else
                   cudaCapabilityToInfo."${capability}";
               maxVersion = info.maxCudaMajorMinorVersion;
+              # TODO: update maxVersion to 13.0 once we use a version of torch supporting it (2.9.1 doesn't)
               version = if (builtins.isNull capability) || (builtins.isNull maxVersion) then "12.9" else maxVersion;
               suffix = lib.strings.replaceString "." "_" version;
             in
