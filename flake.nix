@@ -376,7 +376,7 @@
                 else
                   cudaCapabilityToInfo."${capability}";
               maxVersion = info.maxCudaMajorMinorVersion;
-              version = if (builtins.isNull capability) || (builtins.isNull maxVersion) then "13.0" else maxVersion;
+              version = if (builtins.isNull capability) || (builtins.isNull maxVersion) then "12.9" else maxVersion;
               suffix = lib.strings.replaceString "." "_" version;
             in
             pkgs."cudaPackages_${suffix}".pkgs;
