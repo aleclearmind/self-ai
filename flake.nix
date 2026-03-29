@@ -310,8 +310,8 @@
                 };
                 bitsandbytes = pyPrev.bitsandbytes.overridePythonAttrs (old: {
                   cmakeFlags = (old.cmakeFlags or [ ]) ++ [
-                    (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES"
-                      pyFinal.pkgs.cudaPackages.flags.cmakeCudaArchitecturesString)
+                    (lib.cmakeFeature "COMPUTE_CAPABILITY"
+                      flags.cmakeCudaArchitecturesString)
                   ];
                 });
               })
@@ -329,6 +329,19 @@
                         broken = true;
                       };
                     });
+                    # Fix missing _CCCL_PP_SPLICE_WITH_IMPL20 in CCCL preprocessor.h.
+                    # IMPL21 chains to IMPL19 (skipping 20), causing an off-by-one when
+                    # __CUDA_ARCH_LIST__ has >=17 entries.
+                    cuda_cccl = csPrev.cuda_cccl.overrideAttrs {
+                      postInstall = ''
+                        f=$out/include/cuda/std/__cccl/preprocessor.h
+                        chmod u+w "$f"
+                        sed -i -e '/^#define _CCCL_PP_SPLICE_WITH_IMPL19(SEP, P1, \.\.\.)/a\
+#define _CCCL_PP_SPLICE_WITH_IMPL20(SEP, P1, ...) _CCCL_PP_CAT(P1##SEP, _CCCL_PP_SPLICE_WITH_IMPL19(SEP, __VA_ARGS__))' \
+                            -e 's/\(#define _CCCL_PP_SPLICE_WITH_IMPL21(SEP, P1, \.\.\.)\) *_CCCL_PP_CAT(P1##SEP, _CCCL_PP_SPLICE_WITH_IMPL19(SEP, __VA_ARGS__))/\1 _CCCL_PP_CAT(P1##SEP, _CCCL_PP_SPLICE_WITH_IMPL20(SEP, __VA_ARGS__))/' \
+                            "$f"
+                      '';
+                    };
                   })
                 ];
               }
