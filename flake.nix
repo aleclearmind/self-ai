@@ -286,24 +286,34 @@
           #   '';
           cudaFixesOverlay = final: prev: {
             pythonPackagesExtensions = prev.pythonPackagesExtensions ++ [
-              (pyFinal: pyPrev: {
+              (pyFinal: pyPrev:
+                let
+                  flags = pyFinal.pkgs.cudaPackages.flags;
+                  mkGencode =
+                    cap:
+                    let
+                      sm = lib.replaceStrings [ "." ] [ "" ] cap;
+                    in
+                    "arch=compute_${sm},code=sm_${sm}";
+                in
+                {
                 cupy =
                   (pyFinal.callPackage (pyFinal.pkgs.path + "/pkgs/development/python-modules/cupy") {
                     cudaPackages = pyFinal.pkgs.cudaPackages.overrideScope (_: _: { cudnn = null; });
                   }).overrideAttrs
                     (_: {
-                      CUPY_NVCC_GENERATE_CODE = "arch=compute_61,code=sm_61";
+                      CUPY_NVCC_GENERATE_CODE = lib.concatMapStringsSep ";" mkGencode flags.cudaCapabilities;
                     });
-                bitsandbytes = pyPrev.bitsandbytes.overridePythonAttrs (old: {
-                  cmakeFlags = (old.cmakeFlags or [ ]) ++ [
-                    (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES" pyFinal.pkgs.cudaPackages.flags.cmakeCudaArchitecturesString)
-                  ];
-                });
                 jax = pyPrev.jax.overrideAttrs {
                   doCheck = false;
                   pythonImportsCheck = [ ];
                 };
-
+                bitsandbytes = pyPrev.bitsandbytes.overridePythonAttrs (old: {
+                  cmakeFlags = (old.cmakeFlags or [ ]) ++ [
+                    (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES"
+                      pyFinal.pkgs.cudaPackages.flags.cmakeCudaArchitecturesString)
+                  ];
+                });
               })
             ];
             # cuda_compat has no source on x86_64 but allowUnsupportedSystem makes

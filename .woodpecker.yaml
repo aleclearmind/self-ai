@@ -14,7 +14,6 @@ steps:
 
     commands:
       - echo "experimental-features = nix-command flakes" >> /etc/nix/nix.conf
-      - echo "http2 = false" >> /etc/nix/nix.conf
       - nix profile add nixpkgs/nixos-25.11#{skopeo,jq,attic-client}
       - |
         set -euo pipefail
@@ -40,7 +39,7 @@ steps:
           fi
 
           log "Pushing $PACKAGE to the nix cache"
-          find /nix/store -maxdepth 1 -type d -not -name "*.drv" | xargs -n100 attic push "$ATTIC_CACHE"
+          find /nix/store -maxdepth 1 -type d -not -name "*.drv" | xargs -n1 attic push "$ATTIC_CACHE"
 
           if test "$RESULT" -ne 0; then
             exit "$RESULT"
