@@ -306,11 +306,18 @@
                     });
                 jax = pyPrev.jax.overrideAttrs {
                   doCheck = false;
+                  doInstallCheck = false;
                   pythonImportsCheck = [ ];
                 };
                 bitsandbytes = pyPrev.bitsandbytes.overridePythonAttrs (old: {
                   cmakeFlags = (old.cmakeFlags or [ ]) ++ [
                     (lib.cmakeFeature "COMPUTE_CAPABILITY"
+                      flags.cmakeCudaArchitecturesString)
+                  ];
+                });
+                llama-cpp-python = pyPrev.llama-cpp-python.overridePythonAttrs (old: {
+                  cmakeFlags = (old.cmakeFlags or [ ]) ++ [
+                    (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES"
                       flags.cmakeCudaArchitecturesString)
                   ];
                 });
