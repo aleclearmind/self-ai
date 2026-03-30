@@ -4,7 +4,7 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/common"
 
-if test "$#" -ne 2; then
+if test "$#" -ne 3; then
     fail "Usage: $0 IMAGE QUERY DISK_SIZE"
 fi
 
@@ -31,6 +31,7 @@ ACCEPT=0
 INDEX=0
 while test "$ACCEPT" -eq 0; do
   COST=$(echo "$JSON" | jq '.['"$INDEX"']["dph_total"] *100|round/100' -r)
+  MONTHLY_COST=$(echo "$JSON" | jq '.['"$INDEX"']["dph_total"] * (30 * 8)|round' -r)
   OFFER_ID=$(echo "$JSON" | jq '.['"$INDEX"']["id"]' -r)
   CUDA_MAX_GOOD=$(echo "$JSON" | jq '.['"$INDEX"']["cuda_max_good"]' -r)
   CPU_NAME=$(echo "$JSON" | jq '.['"$INDEX"']["cpu_name"] | trim | gsub("[®™©]"; "")' -r)
@@ -55,18 +56,21 @@ while test "$ACCEPT" -eq 0; do
   FULL_SIZE_DOWNLOAD_RENTAL_COST=$(python -c "print($COST * ($FULL_SIZE_DOWNLOAD_SECONDS / (60 * 60)))")
   FULL_SIZE_DOWNLOAD_COST=$(python -c "print($FULL_SIZE_DOWNLOAD_TRAFFIC_COST + $FULL_SIZE_DOWNLOAD_RENTAL_COST)")
 
+  WORKING_MONTH_COST=$(python -c "print(21 * ($COST * 8 + $FULL_SIZE_DOWNLOAD_COST))")
+
   log "Offer $OFFER_ID:
     GPU: ${GPU_COUNT}x $GPU_NAME (${GPU_COUNT}x $((GPU_RAM / 1024)) GB = $((GPU_TOTAL_RAM / 1024)) GB)
     CPU: $CPU_NAME ($((CPU_RAM / 1024)) GB)
     Location: $GEOLOCATION
-    Cost: $COST USD/h
+    Cost: $COST USD/h ($MONTHLY_COST USD/month)
     Maximum CUDA: $CUDA_MAX_GOOD
     Compute capability: $COMPUTE_CAP
     Download speed: $DOWNLOAD_SPEED Mb/s
     Download cost: $DOWNLOAD_COST USD/GB
     Time for downloading $DISK_SIZE GB: $(python -c "print(f'{$FULL_SIZE_DOWNLOAD_SECONDS // 3600}h {$FULL_SIZE_DOWNLOAD_SECONDS % 3600 // 60}m')")
     Cost of $DISK_SIZE GB in traffic: $(python -c "print(f"'"'"{$FULL_SIZE_DOWNLOAD_TRAFFIC_COST:.2f}"'"'")") USD
-    Total cost of downloading $DISK_SIZE GB: $(python -c "print(f"'"'"{$FULL_SIZE_DOWNLOAD_COST:.2f}"'"'")") USD"
+    Total cost of downloading $DISK_SIZE GB: $(python -c "print(f"'"'"{$FULL_SIZE_DOWNLOAD_COST:.2f}"'"'")") USD
+    Working month cost: $(python -c "print(f"'"'"{$WORKING_MONTH_COST:.0f}"'"'")") USD/month"
   if ask "Launch? [yn]"; then
     ACCEPT=1
   fi
