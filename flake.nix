@@ -304,6 +304,30 @@
                     (_: {
                       CUPY_NVCC_GENERATE_CODE = lib.concatMapStringsSep ";" mkGencode flags.cudaCapabilities;
                     });
+                # TraceType_2.cpp OOMs gcc — shards too large.
+                # https://github.com/pytorch/pytorch/issues/178666
+                torch = pyPrev.torch.overrideAttrs (old: {
+                  postPatch = (old.postPatch or "") + ''
+                    sed -i 's/num_shards=5/num_shards=16/' tools/autograd/gen_trace_type.py
+                    sed -i '/TraceType_0\.cpp/,/TraceType_4\.cpp/c\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_0.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_1.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_2.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_3.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_4.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_5.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_6.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_7.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_8.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_9.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_10.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_11.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_12.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_13.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_14.cpp"\
+                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_15.cpp"' caffe2/CMakeLists.txt
+                  '';
+                });
                 jax = pyPrev.jax.overrideAttrs {
                   doCheck = false;
                   doInstallCheck = false;
