@@ -304,29 +304,38 @@
                     (_: {
                       CUPY_NVCC_GENERATE_CODE = lib.concatMapStringsSep ";" mkGencode flags.cudaCapabilities;
                     });
-                # TraceType_2.cpp OOMs gcc — shards too large.
+                # Generated .cpp files OOM gcc/nvcc — too few shards.
                 # https://github.com/pytorch/pytorch/issues/178666
                 torch = pyPrev.torch.overrideAttrs (old: {
-                  postPatch = (old.postPatch or "") + ''
-                    sed -i 's/num_shards=5/num_shards=16/' tools/autograd/gen_trace_type.py
-                    sed -i '/TraceType_0\.cpp/,/TraceType_4\.cpp/c\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_0.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_1.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_2.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_3.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_4.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_5.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_6.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_7.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_8.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_9.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_10.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_11.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_12.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_13.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_14.cpp"\
-                      "''${TORCH_SRC_DIR}/csrc/autograd/generated/TraceType_15.cpp"' caffe2/CMakeLists.txt
-                  '';
+                  # Limit parallelism — flash-attention backward kernels and
+                  # large .cu files each eat several GB of RAM under nvcc.
+                  NIX_BUILD_CORES = 4;
+
+                  postPatch =
+                    (old.postPatch or "")
+                    + (
+                      let
+                        shards = 16;
+                        range = lib.lists.range 0 (shards - 1);
+                        mkSrc = prefix: i: ''"''${TORCH_SRC_DIR}/csrc/autograd/generated/${prefix}_${toString i}.cpp"'';
+                        sedBlock = prefix: lib.concatStringsSep "\\\n" (map (mkSrc prefix) range);
+                      in
+                      ''
+                        # Increase codegen shards: TraceType, VariableType, python_functions 5→16
+                        sed -i 's/num_shards=5/num_shards=${toString shards}/g' \
+                          tools/autograd/gen_trace_type.py \
+                          tools/autograd/gen_variable_type.py \
+                          tools/autograd/gen_autograd_functions.py
+
+                        # RegisterCUDA 1→16  (only CPU had 4, everything else had 1)
+                        sed -i 's/num_shards=4 if dispatch_key == DispatchKey.CPU else 1/num_shards=${toString shards}/' \
+                          torchgen/gen.py
+
+                        # Update hardcoded file lists in caffe2/CMakeLists.txt
+                        sed -i '/TraceType_0\.cpp/,/TraceType_4\.cpp/c\${sedBlock "TraceType"}' caffe2/CMakeLists.txt
+                        sed -i '/VariableType_0\.cpp/,/VariableType_4\.cpp/c\${sedBlock "VariableType"}' caffe2/CMakeLists.txt
+                      ''
+                    );
                 });
                 jax = pyPrev.jax.overrideAttrs {
                   doCheck = false;
