@@ -309,7 +309,7 @@
                 torch = pyPrev.torch.overrideAttrs (old: {
                   # Limit parallelism — flash-attention backward kernels and
                   # large .cu files each eat several GB of RAM under nvcc.
-                  NIX_BUILD_CORES = 4;
+                  NIX_BUILD_CORES = 8;
 
                   postPatch =
                     (old.postPatch or "")
