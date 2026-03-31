@@ -321,14 +321,16 @@
                         sedBlock = prefix: lib.concatStringsSep "\\\n" (map (mkSrc prefix) range);
                       in
                       ''
-                        # Increase codegen shards: TraceType, VariableType, python_functions 5→16
+                        # Increase all codegen shards to ${toString shards}
                         sed -i 's/num_shards=5/num_shards=${toString shards}/g' \
                           tools/autograd/gen_trace_type.py \
-                          tools/autograd/gen_variable_type.py \
+                          tools/autograd/gen_variable_type.py
+                        sed -i 's/num_shards = 5/num_shards = ${toString shards}/' \
                           tools/autograd/gen_autograd_functions.py
-
-                        # RegisterCUDA 1→16  (only CPU had 4, everything else had 1)
-                        sed -i 's/num_shards=4 if dispatch_key == DispatchKey.CPU else 1/num_shards=${toString shards}/' \
+                        sed -i \
+                          -e 's/num_shards=4 if dispatch_key == DispatchKey.CPU else 1/num_shards=${toString shards}/' \
+                          -e 's/num_shards=5/num_shards=${toString shards}/g' \
+                          -e 's/num_shards=4,/num_shards=${toString shards},/' \
                           torchgen/gen.py
 
                         # Update hardcoded file lists in caffe2/CMakeLists.txt
