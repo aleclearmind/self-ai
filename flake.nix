@@ -357,6 +357,7 @@
                       flags.cmakeCudaArchitecturesString)
                   ];
                 });
+                vllm = pyPrev.vllm.overrideAttrs { NIX_BUILD_CORES = 4; };
               })
             ];
             # cuda_compat has no source on x86_64 but allowUnsupportedSystem makes
