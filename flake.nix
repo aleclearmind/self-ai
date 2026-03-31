@@ -336,6 +336,7 @@
                         # Update hardcoded file lists in caffe2/CMakeLists.txt
                         sed -i '/TraceType_0\.cpp/,/TraceType_4\.cpp/c\${sedBlock "TraceType"}' caffe2/CMakeLists.txt
                         sed -i '/VariableType_0\.cpp/,/VariableType_4\.cpp/c\${sedBlock "VariableType"}' caffe2/CMakeLists.txt
+                        sed -i '/python_functions_0\.cpp/,/python_functions_4\.cpp/c\${sedBlock "python_functions"}' caffe2/CMakeLists.txt
                       ''
                     );
                 });
