@@ -79,15 +79,39 @@ while test "$ACCEPT" -eq 0; do
 done
 
 IMAGE=$(echo "$IMAGE" | sed 's/%COMPUTE_CAP%/'"$COMPUTE_CAP"'/')
+
+if test -z "$IMAGE"; then
+    if test "$CUDA_MAX_GOOD" == "12.8"; then
+        IMAGE=vastai/base-image:cuda-12.8.1-auto
+        IMAGE=nvidia/cuda:12.8.1-cudnn-runtime-ubuntu24.04
+    elif test "$CUDA_MAX_GOOD" == "12.4"; then
+        IMAGE=vastai/base-image:cuda-12.4.1-auto
+        IMAGE=nvidia/cuda:12.8.1-cudnn-runtime-ubuntu22.04
+    elif test "$CUDA_MAX_GOOD" == "13.0"; then
+        IMAGE=vastai/base-image:cuda-12.4.1-auto
+        IMAGE=nvidia/cuda:13.0.2-cudnn-runtime-ubuntu24.04
+    elif test "$CUDA_MAX_GOOD" == "12.9"; then
+        IMAGE=vastai/base-image:cuda-12.4.1-auto
+        IMAGE=nvidia/cuda:12.9.1-cudnn-runtime-ubuntu24.04
+    else
+        fail "Don't know what tag to use for CUDA $CUDA_MAX_GOOD"
+    fi
+    INSTANCE_EXTRA_ARGS=()
+else
+    INSTANCE_EXTRA_ARGS=( \
+        --env '-e SSH_PUBLIC_KEY="'"$(cat ~/.ssh/id_ed25519_datacrunch.pub)"'"' \
+        --direct \
+        --args
+    )
+fi
+
 INSTANCE_OUTPUT=$(
     vastai create instance \
            "$OFFER_ID" \
            --image "$IMAGE" \
            --disk "$DISK_SIZE" \
            --raw \
-           --env '-e SSH_PUBLIC_KEY="'"$(cat ~/.ssh/id_ed25519_datacrunch.pub)"'"' \
-           --direct \
-           --args
+           "${INSTANCE_EXTRA_ARGS[@]}"
 )
 
 RESULT=$(echo "$INSTANCE_OUTPUT" | jq '.["success"]')
@@ -115,7 +139,10 @@ while test "$("${SSH[@]}" 'echo ready' 2> /dev/null)" != "ready"; do
 done
 
 log "GPU info"
-stderr "${SSH[@]}" /nix/store/*-glibc-*/lib/ld-linux-x86-64.so.2 /usr/bin/nvidia-smi
+stderr "${SSH[@]}" <<< '/nix/store/*-glibc-*/lib/ld-linux-x86-64.so.2 --library-path /usr/lib/x86_64-linux-gnu/ /usr/bin/nvidia-smi || nvidia-smi'
 
-log "SSH available: ${SSH[*]}"
+stderr printf "SSH available: "
+stderr printf "'%s' " "${SSH[@]}"
+stderr echo
+
 echo "$SSH_URL"

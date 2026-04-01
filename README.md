@@ -12,6 +12,18 @@ Usage:
 
 # https://cloud.vast.ai/manage-keys
 vastai set api-key "$API_KEY"
+```
 
+# Launch whisper
+
+```
+./launch-whisper
+# On another terminal
+./produce-srt video.mp4
+```
+
+# Launch an LLM
+
+```
 ./launch-llm gpt-oss
 ```

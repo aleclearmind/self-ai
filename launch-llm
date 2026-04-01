@@ -18,10 +18,46 @@ shift
 
 yaml_export "$MODELS_YAML" "$MODEL_NAME"
 
-SSH_URL=$("$SCRIPT_DIR/create-instance" 'gpu_ram >= '"$MINIMUM_GPU_RAM"' cuda_max_good = "12.8" geolocation != "US"' "$MODEL_SIZE")
+# 'ghcr.io/aleclearmind/vast-ai-nix-vllm-%COMPUTE_CAP%'
+SSH_URL=$("$SCRIPT_DIR/create-instance" '' 'gpu_ram >= '"$MINIMUM_GPU_RAM"' inet_down >= 1000 cuda_max_good == 13.0' "$((MODEL_SIZE + 50))")
 
 SSH=("${SSH_PREFIX[@]}")
 SSH+=("$SSH_URL")
+
+PORT=8000
+log "Launching vllm on $PORT"
+# shellcheck disable=SC2016
+"${SSH[@]}" \
+    -L "$PORT":localhost:"$PORT" \
+    '
+set -xeuo pipefail
+touch ~/.no_auto_tmux
+apt-get install -y build-essential jq
+curl -LsSf https://astral.sh/uv/install.sh | sh
+source $HOME/.local/bin/env
+uv venv --python 3.12 --seed --managed-python
+source .venv/bin/activate
+export VLLM_VERSION=$(curl -s https://api.github.com/repos/vllm-project/vllm/releases/latest | jq -r .tag_name | sed 's/^v//')
+export CUDA_VERSION=130
+export CPU_ARCH=$(uname -m)
+uv pip install \
+  https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+cu${CUDA_VERSION}-cp38-abi3-manylinux_2_35_${CPU_ARCH}.whl \
+  --extra-index-url https://download.pytorch.org/whl/cu${CUDA_VERSION} \
+  --index-strategy unsafe-best-match
+vllm serve openai/gpt-oss-120b
+'
+
+exit 0
+
+PORT=8000
+log "Launching vllm on $PORT"
+# shellcheck disable=SC2016
+"${SSH[@]}" \
+    -L "$PORT":localhost:"$PORT" \
+    '
+export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu"
+vllm serve openai/gpt-oss-120b
+'
 
 log "Installing nix"
 "${SSH[@]}" '
@@ -38,6 +74,8 @@ extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GE
 extra-experimental-features = flakes nix-command
 EOF
 '
+
+exit 0
 
 OLLAMA="nix run --override-input nixpkgs nixpkgs/nixos-25.11 github:aleclearmind/self-ai#ollama --"
 log "Installing ollama"

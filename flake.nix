@@ -164,9 +164,9 @@
                 ${pkgs.openssh}/bin/sshd -D -e -f /etc/ssh/sshd_config
               '';
 
-              etcProfile = pkgs.writeTextDir "etc/profile" ''
-                export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
-                export LD_LIBRARY_PATH=/lib/x86_64-linux-gnu
+              etcEnvironment = pkgs.writeTextDir "etc/environment" ''
+                SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+                LD_LIBRARY_PATH=/lib/x86_64-linux-gnu
               '';
 
               baseImage = pkgs.dockerTools.buildImage {
@@ -202,7 +202,7 @@
                   shadowFile
                   nssSwitchFile
                   sshdConfigFile
-                  etcProfile
+                  etcEnvironment
                   entrypoint
                   nixConf
                 ];

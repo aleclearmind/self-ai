@@ -1,0 +1,44 @@
+#!/usr/bin/env bash
+
+SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
+source "$SCRIPT_DIR/common"
+
+SSH_URL=$("$SCRIPT_DIR/create-instance" 'ghcr.io/aleclearmind/vast-ai-nix-whisper-%COMPUTE_CAP%' 'gpu_ram > 4 compute_cap == 610 inet_down >= 1000' 16)
+
+SSH=("${SSH_PREFIX[@]}")
+SSH+=("$SSH_URL")
+
+log "Preparing whisper"
+# shellcheck disable=SC2016
+"${SSH[@]}" '
+set -euo pipefail
+cd /root
+# TODO: not necessary
+export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+whisper-cpp-download-ggml-model large-v3
+wget "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin"
+'
+
+
+PORT=39823
+log "Launching whisper on $PORT"
+# shellcheck disable=SC2016
+"${SSH[@]}" \
+    -L "$PORT":localhost:"$PORT" \
+    '
+cd /root
+# TODO: not necessary
+export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu"
+whisper-server \
+  -m ggml-large-v3.bin \
+  --convert \
+  --print-colors \
+  --print-realtime \
+  --print-progress \
+  --vad-model ggml-silero-v5.1.2.bin \
+  --vad \
+  --max-context 64 \
+  --language auto \
+  --port '"$PORT"'
+'
