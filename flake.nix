@@ -12,7 +12,7 @@
   };
 
   outputs =
-    { nixpkgs, simple-uvnix, ... }:
+    { self, nixpkgs, simple-uvnix, ... }:
     let
       inherit (nixpkgs) lib;
       forAllSystems = lib.genAttrs lib.systems.flakeExposed;
@@ -46,18 +46,43 @@
               pkgs = import nixpkgs {
                 inherit system;
               };
+
               passwdFile = pkgs.writeTextDir "etc/passwd" ''
                 root:x:0:0:root:/root:/bin/bash
                 sshd:x:74:74:Privilege-separated SSH:/var/empty:/bin/false
                 nobody:x:65534:65534:nobody:/var/empty:/bin/false
               '';
 
+              nixNetRc = pkgs.writeTextDir "etc/nix/netrc" ''
+                machine clearmind.me
+                  password eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjQyOTQ5NjcyOTUsIm5iZiI6MTc3NTM4MTE0OCwic3ViIjoic2VsZi1haS1ybyIsImh0dHBzOi8vand0LmF0dGljLnJzL3YxIjp7ImNhY2hlcyI6eyJzZWxmLWFpIjp7InIiOjF9fX19.dVGjEwsJMS5BfIKg-lXSKf1xflwy6IlLSOhyxXp5HcCYuqx29VOVsvAacJPe8pJtF8fyAtP4px8vOL3LfGMpro4Zx96fsBDUsP_gwHsvckjwBEOk6_06M-xla_YIokFt5sOW_Vfkh5euk2t47Am2i4vJMYcntYGlE0ZTPZEZtGpchFSk690tWSK3ekMqFnw0GXCW9T3kc2qPuyhIrcn2EakFWDaR-0SMD8fn15ONwux6ActHb1tp1myyYXCVrvzDSeCw0lMnqGv582dJHZt5uD_sINUkKgRzM0l0P72aVoe_KPGs6eI0MppAMZl5vxjLK7M8amfjL5Rzt2-A0-gyGfTcCsqPuWcV022iD3eiVsQ36fpoyCjfrazdQf8F-qsmLDMw_bcfhcqOUxw2KPugpa74tCAPlnagYcWSTetpPIaJw1VEFUpPy66mf4bW7PW-iyNVG5DbB3bPHTJotzdwu67_M-AnLI061cKz67dSzxXQl1VLShj4qhwWyCQh7KxoASTsPnph5SPYzU59MpzDtzRX8JDAfdzkaI4o88utF4dcWYaodSqYdfyQzoVzTWpMAtwz7wMpnRZy2fN-GC_7bwOr6GspWfO0sBoSdoU9Qp12BOMzR5JYOxEZvkMRMPHo3hdzH6D3FRrXlokX4FqKjLws5_O9dkRoday3O4mo7_I
+              '';
+
+              nixRegistry = pkgs.writeTextDir "etc/nix/registry.json" ''
+                {
+                  "flakes": [
+                    {
+                      "from": {
+                        "id": "self-ai",
+                        "type": "indirect"
+                      },
+                      "to": {
+                        "path": "${self.outPath}",
+                        "type": "path"
+                      }
+                    }
+                  ],
+                  "version": 2
+                }
+              '';
+
               nixConf = pkgs.writeTextDir "etc/nix/nix.conf" ''
-                extra-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
+                extra-substituters = https://clearmind.me/attic/self-ai https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
                 extra-trusted-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
-                extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=
+                extra-trusted-public-keys = self-ai:YNZICHKQpYE2PkLDj7OjIibm4fZOF2DrCvJ5hDPRJuY= flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=
                 extra-experimental-features = flakes nix-command
                 build-users-group =
+                netrc-file = /etc/nix/netrc
               '';
 
               groupFile = pkgs.writeTextDir "etc/group" ''
@@ -94,7 +119,7 @@
 
                 PasswordAuthentication no
                 KbdInteractiveAuthentication no
-                UsePAM no
+                UsePAM yes
 
                 Subsystem sftp ${pkgs.openssh}/libexec/sftp-server
 
@@ -183,6 +208,8 @@
                 tini
                 python313Packages.huggingface-hub
                 wget
+                attic-client
+                git
 
                 # Debug
                 nix
@@ -203,6 +230,8 @@
                 etcEnvironment
                 entrypoint
                 nixConf
+                nixRegistry
+                nixNetRc
               ];
               config = {
                 Cmd = [
