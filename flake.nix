@@ -119,7 +119,7 @@
 
                 PasswordAuthentication no
                 KbdInteractiveAuthentication no
-                UsePAM yes
+                UsePAM no
 
                 Subsystem sftp ${pkgs.openssh}/libexec/sftp-server
 
