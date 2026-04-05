@@ -49,17 +49,19 @@ steps:
         # ALLOWED='vllm-6.1|whisper-6.1'
         # ALLOWED='^vllm$'
         # ALLOWED='vllm-6.1'
-        ALLOWED='vllm-12.0'
-        # ALLOWED='whisper-6.1'
+        # ALLOWED='vllm-12.0'
+        ALLOWED='whisper-6.1|container-base'
         for PACKAGE in $(nix flake show --json | jq -r '.packages["x86_64-linux"] | keys | .[]' | grep -E "$ALLOWED"); do
 
           log "Building $PACKAGE"
           nix build .#"\"$PACKAGE\"" -L
 
-          log "Pushing $PACKAGE to ghcr.io"
-          IMAGE_NAME="vast-ai-nix-$PACKAGE"
-          IMAGE="ghcr.io/$CI_REPO_OWNER/$IMAGE_NAME"
-          skopeo --insecure-policy copy --dest-creds="$CI_REPO_OWNER:$GITHUB_PACKAGES_TOKEN" docker-archive:result "docker://$IMAGE:latest"
-          skopeo --insecure-policy copy --dest-creds="$CI_REPO_OWNER:$GITHUB_PACKAGES_TOKEN" docker-archive:result "docker://$IMAGE:$CI_COMMIT_SHA"
+          if [[ "$PACKAGE" == container-* ]]; then
+            log "Pushing $PACKAGE to ghcr.io"
+            IMAGE_NAME="vast-ai-nix-$PACKAGE"
+            IMAGE="ghcr.io/$CI_REPO_OWNER/$IMAGE_NAME"
+            skopeo --insecure-policy copy --dest-creds="$CI_REPO_OWNER:$GITHUB_PACKAGES_TOKEN" docker-archive:result "docker://$IMAGE:latest"
+            skopeo --insecure-policy copy --dest-creds="$CI_REPO_OWNER:$GITHUB_PACKAGES_TOKEN" docker-archive:result "docker://$IMAGE:$CI_COMMIT_SHA"
+          fi
 
         done

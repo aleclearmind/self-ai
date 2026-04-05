@@ -3,7 +3,7 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source "$SCRIPT_DIR/common"
 
-SSH_URL=$("$SCRIPT_DIR/create-instance" 'ghcr.io/aleclearmind/vast-ai-nix-whisper-%COMPUTE_CAP%' 'gpu_ram > 4 compute_cap == 610 inet_down >= 1000' 16)
+SSH_URL=$("$SCRIPT_DIR/create-instance" 'ghcr.io/aleclearmind/vast-ai-nix-whisper-%COMPUTE_CAP%' 'gpu_ram > 4 compute_cap == 610 inet_down >= 300' 16)
 
 SSH=("${SSH_PREFIX[@]}")
 SSH+=("$SSH_URL")
