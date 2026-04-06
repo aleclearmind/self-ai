@@ -3,7 +3,12 @@
 SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 source "$SCRIPT_DIR/common"
 
-SSH_URL=$("$SCRIPT_DIR/create-instance" 'ghcr.io/aleclearmind/vast-ai-nix-whisper-%COMPUTE_CAP%' 'gpu_ram > 4 compute_cap == 610 inet_down >= 300' 16)
+SSH_URL=$(
+    "$SCRIPT_DIR/create-instance" \
+        'ghcr.io/aleclearmind/vast-ai-nix-container-base' \
+        'gpu_ram > 4 compute_cap == 610 inet_down >= 300' \
+        128
+)
 
 SSH=("${SSH_PREFIX[@]}")
 SSH+=("$SSH_URL")
@@ -15,6 +20,10 @@ set -euo pipefail
 cd /root
 # TODO: not necessary
 export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+source /etc/profile.d/nix.sh
+CAPABILITIES=$(/nix/store/*-glibc-*/lib/ld-linux-x86-64.so.2 --library-path /usr/lib/x86_64-linux-gnu/ /usr/bin/nvidia-smi --query-gpu=compute_cap --format=noheader)
+nix profile add self-ai#"\"whisper-$CAPABILITIES\""
+nix profile add nixpkgs#ffmpeg-full
 whisper-cpp-download-ggml-model large-v3
 wget "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin"
 '
@@ -30,6 +39,7 @@ cd /root
 # TODO: not necessary
 export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
 export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu"
+source /etc/profile.d/nix.sh
 whisper-server \
   -m ggml-large-v3.bin \
   --convert \

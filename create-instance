@@ -4,6 +4,8 @@ SCRIPT_DIR=$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )
 # shellcheck disable=SC1091
 source "$SCRIPT_DIR/common"
 
+set -x
+
 if test "$#" -ne 3; then
     fail "Usage: $0 IMAGE QUERY DISK_SIZE"
 fi

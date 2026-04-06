@@ -12,7 +12,12 @@
   };
 
   outputs =
-    { self, nixpkgs, simple-uvnix, ... }:
+    {
+      self,
+      nixpkgs,
+      simple-uvnix,
+      ...
+    }:
     let
       inherit (nixpkgs) lib;
       forAllSystems = lib.genAttrs lib.systems.flakeExposed;
@@ -486,15 +491,29 @@
           #     };
           #   in
           #   [ null ] ++ builtins.attrNames genericPkgs._cuda.db.cudaCapabilityToInfo;
-          servicesForPkgs = pkgs: {
-            whisper = [
-              pkgs.whisper-cpp
-              pkgs.ffmpeg-headless
-            ];
-            llama = [ pkgs.llama-cpp ];
-            vllm = [ pkgs.vllm ];
-            ollama = [ pkgs.ollama-cuda ];
-          };
+          servicesForPkgs =
+            pkgs:
+            let
+              wrapWithBins =
+                drv: deps:
+                pkgs.symlinkJoin {
+                  name = "${drv.name}-wrapped";
+                  paths = [ drv ];
+                  nativeBuildInputs = [ pkgs.makeWrapper ];
+                  postBuild = ''
+                    for f in $out/bin/*; do
+                      wrapProgram "$f" \
+                        --prefix PATH : ${pkgs.lib.makeBinPath deps} 
+                    done
+                  '';
+                };
+            in
+            {
+              whisper = wrapWithBins pkgs.whisper-cpp [ pkgs.ffmpeg-headless ];
+              llama = pkgs.llama-cpp;
+              vllm = pkgs.vllm;
+              ollama = pkgs.ollama-cuda;
+            };
         in
         {
           "container-base" = baseImage;
@@ -529,7 +548,7 @@
                     name = name;
                     # WIP: don't get the first, make a wrapper that pulls both
                     #      maybe make a script launching the service directly
-                    value = builtins.elemAt services."${serviceName}" 0;
+                    value = services."${serviceName}";
                   }
                 ]
               )
