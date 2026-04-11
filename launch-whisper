@@ -23,7 +23,6 @@ export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
 source /etc/profile.d/nix.sh
 CAPABILITIES=$(/nix/store/*-glibc-*/lib/ld-linux-x86-64.so.2 --library-path /usr/lib/x86_64-linux-gnu/ /usr/bin/nvidia-smi --query-gpu=compute_cap --format=noheader)
 nix profile add self-ai#"\"whisper-$CAPABILITIES\""
-nix profile add nixpkgs#ffmpeg-full
 whisper-cpp-download-ggml-model large-v3
 wget "https://huggingface.co/ggml-org/whisper-vad/resolve/main/ggml-silero-v5.1.2.bin"
 '

@@ -19,7 +19,12 @@ shift
 yaml_export "$MODELS_YAML" "$MODEL_NAME"
 
 # 'ghcr.io/aleclearmind/vast-ai-nix-vllm-%COMPUTE_CAP%'
-SSH_URL=$("$SCRIPT_DIR/create-instance" '' 'gpu_ram >= '"$MINIMUM_GPU_RAM"' inet_down >= 1000 cuda_max_good == 13.0' "$((MODEL_SIZE + 50))")
+SSH_URL=$(
+    "$SCRIPT_DIR/create-instance" \
+        'ghcr.io/aleclearmind/vast-ai-nix-container-base' \
+        'gpu_ram >= '"$MINIMUM_GPU_RAM"' compute_cap == 1200 inet_down >= 1000' \
+        "$((MODEL_SIZE + 100))"
+)
 
 SSH=("${SSH_PREFIX[@]}")
 SSH+=("$SSH_URL")
@@ -30,24 +35,14 @@ log "Launching vllm on $PORT"
 "${SSH[@]}" \
     -L "$PORT":localhost:"$PORT" \
     '
-set -xeuo pipefail
-touch ~/.no_auto_tmux
-apt-get install -y build-essential jq
-curl -LsSf https://astral.sh/uv/install.sh | sh
-source $HOME/.local/bin/env
-uv venv --python 3.12 --seed --managed-python
-source .venv/bin/activate
-export VLLM_VERSION=$(curl -s https://api.github.com/repos/vllm-project/vllm/releases/latest | jq -r .tag_name | sed 's/^v//')
-export CUDA_VERSION=130
-export CPU_ARCH=$(uname -m)
-uv pip install \
-  https://github.com/vllm-project/vllm/releases/download/v${VLLM_VERSION}/vllm-${VLLM_VERSION}+cu${CUDA_VERSION}-cp38-abi3-manylinux_2_35_${CPU_ARCH}.whl \
-  --extra-index-url https://download.pytorch.org/whl/cu${CUDA_VERSION} \
-  --index-strategy unsafe-best-match
-vllm serve openai/gpt-oss-120b
+set -euo pipefail
+cd /root
+# TODO: not necessary
+export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
+source /etc/profile.d/nix.sh
+CAPABILITIES=$(/nix/store/*-glibc-*/lib/ld-linux-x86-64.so.2 --library-path /usr/lib/x86_64-linux-gnu/ /usr/bin/nvidia-smi --query-gpu=compute_cap --format=noheader)
+nix profile add self-ai#"\"vllm-$CAPABILITIES\""
 '
-
-exit 0
 
 PORT=8000
 log "Launching vllm on $PORT"
@@ -56,41 +51,6 @@ log "Launching vllm on $PORT"
     -L "$PORT":localhost:"$PORT" \
     '
 export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu"
+source /etc/profile.d/nix.sh
 vllm serve openai/gpt-oss-120b
 '
-
-log "Installing nix"
-"${SSH[@]}" '
-set -euo pipefail
-
-apt-get install -y xz-utils
-
-sh <(curl --proto "=https" --tlsv1.2 -L https://nixos.org/nix/install) --daemon --yes
-
-cat > /etc/nix/nix.conf <<EOF
-extra-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
-extra-trusted-substituters = https://cache.flox.dev https://nix-community.cachix.org https://cache.nixos-cuda.org
-extra-trusted-public-keys = flox-cache-public-1:7F4OyH7ZCnFhcze3fJdfyXYLQw/aV7GEed86nQ7IsOs= nix-community.cachix.org-1:mB9FSh9qf2dCimDSUo8Zy7bkq5CX+/rkCWyvRCYg3Fs= cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=
-extra-experimental-features = flakes nix-command
-EOF
-'
-
-exit 0
-
-OLLAMA="nix run --override-input nixpkgs nixpkgs/nixos-25.11 github:aleclearmind/self-ai#ollama --"
-log "Installing ollama"
-"${SSH[@]}" "$OLLAMA --help"
-
-log "Fetching model"
-"${SSH[@]}" "
-$OLLAMA serve &
-sleep 3
-$OLLAMA pull $OLLAMA_MODEL_NAME
-pkill ollama
-"
-
-log "Launching ollama"
-PORT=20512
-"${SSH[@]}" \
-    -L "$PORT":localhost:"$PORT" \
-    "OLLAMA_HOST=127.0.0.1:$PORT $OLLAMA serve"
