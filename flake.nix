@@ -396,7 +396,12 @@
                       (lib.cmakeFeature "CMAKE_CUDA_ARCHITECTURES" flags.cmakeCudaArchitecturesString)
                     ];
                   });
-                  vllm = pyPrev.vllm.overrideAttrs { NIX_BUILD_CORES = 4; };
+                  vllm = pyPrev.vllm.overrideAttrs {
+                    NIX_BUILD_CORES = 8;
+                    NVCC_THREADS = 4;
+                    CMAKE_BUILD_TYPE = "Release";
+                  };
+                  xformers = pyPrev.xformers.overrideAttrs { NIX_BUILD_CORES = 4; };
                 }
               )
             ];
