@@ -16,26 +16,29 @@ final: prev: {
         cupy =
           let
             cudaPkgs = pyFinal.pkgs.cudaPackages;
-            staticOutputs = builtins.filter (p: p != null) (
-              map (pkg: if pkg ? static then pkg.static else null)
-                (builtins.attrValues cudaPkgs)
-            );
           in
           (pyFinal.callPackage (pyFinal.pkgs.path + "/pkgs/development/python-modules/cupy") {
             cudaPackages = cudaPkgs.overrideScope (_: _: { cudnn = null; });
           }).overrideAttrs
             (old: {
               CUPY_NVCC_GENERATE_CODE = lib.concatMapStringsSep ";" mkGencode flags.cudaCapabilities;
-              # cupy's cudatoolkit-joined pulls all outputs including -static
-              # into the runtime closure. Strip those references.
               nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
                 pyFinal.pkgs.removeReferencesTo
               ];
-              postFixup =
-                (old.postFixup or "")
-                + lib.concatMapStrings (p: ''
-                  find $out -name '*.so' -exec remove-references-to -t ${p} '{}' +
-                '') staticOutputs;
+              # cupy's cudatoolkit-joined pulls all outputs including -static
+              # into the runtime closure. Discover the actual static refs
+              # baked into the built .so files and strip them — naming
+              # cuda packages at eval time would pull their drvs (notably
+              # tensorrt, ~7G) into cupy's input closure for nothing.
+              postFixup = (old.postFixup or "") + ''
+                find $out -name '*.so' -print0 | while IFS= read -r -d "" f; do
+                  for ref in $(strings "$f" \
+                      | grep -oE '/nix/store/[a-z0-9]{32}-[^[:space:]/]*-static' \
+                      | sort -u); do
+                    remove-references-to -t "$ref" "$f"
+                  done
+                done
+              '';
             });
         # Generated .cpp files OOM gcc/nvcc — too few shards.
         # https://github.com/pytorch/pytorch/issues/178666
