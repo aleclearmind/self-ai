@@ -64,7 +64,7 @@ steps:
         # ALLOWED='whisper-6.1|container-base'
         # ALLOWED='^(whisper|vllm|container-base)$'
         # ALLOWED='^(whisper|vllm|container-base)$'
-        ALLOWED='^(vllm)$'
+        ALLOWED='^(easycontrol)$'
         for PACKAGE in $(nix flake show --json | jq -r '.packages["x86_64-linux"] | keys | .[]' | grep -E "$ALLOWED"); do
 
           log "Building $PACKAGE"
