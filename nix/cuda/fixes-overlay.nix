@@ -97,11 +97,13 @@ final: prev: {
           CMAKE_BUILD_TYPE = "Release";
         };
         xformers = pyPrev.xformers.overrideAttrs { NIX_BUILD_CORES = 4; };
-        gradio = pyPrev.gradio.overridePythonAttrs {
+        # overridePythonAttrs strips .override, which gradio's own
+        # passthru.sans-reverse-dependencies relies on. Use overrideAttrs.
+        gradio = pyPrev.gradio.overrideAttrs (_: {
           doCheck = false;
           doInstallCheck = false;
           pythonImportsCheck = [ ];
-        };
+        });
       }
     )
   ];
