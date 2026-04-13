@@ -339,11 +339,28 @@
                 in
                 {
                   cupy =
+                    let
+                      cudaPkgs = pyFinal.pkgs.cudaPackages;
+                      staticOutputs = builtins.filter (p: p != null) (
+                        map (pkg: if pkg ? static then pkg.static else null)
+                          (builtins.attrValues cudaPkgs)
+                      );
+                    in
                     (pyFinal.callPackage (pyFinal.pkgs.path + "/pkgs/development/python-modules/cupy") {
-                      cudaPackages = pyFinal.pkgs.cudaPackages.overrideScope (_: _: { cudnn = null; });
+                      cudaPackages = cudaPkgs.overrideScope (_: _: { cudnn = null; });
                     }).overrideAttrs
-                      (_: {
+                      (old: {
                         CUPY_NVCC_GENERATE_CODE = lib.concatMapStringsSep ";" mkGencode flags.cudaCapabilities;
+                        # cupy's cudatoolkit-joined pulls all outputs including -static
+                        # into the runtime closure. Strip those references.
+                        nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
+                          pyFinal.pkgs.removeReferencesTo
+                        ];
+                        postFixup =
+                          (old.postFixup or "")
+                          + lib.concatMapStrings (p: ''
+                            find $out -name '*.so' -exec remove-references-to -t ${p} '{}' +
+                          '') staticOutputs;
                       });
                   # Generated .cpp files OOM gcc/nvcc — too few shards.
                   # https://github.com/pytorch/pytorch/issues/178666
