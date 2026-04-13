@@ -35,12 +35,22 @@ steps:
         set -eu
         set -f
         export IFS=' '
+        PATHS=
+        for p in \$OUT_PATHS; do
+          case "\$p" in
+            *tensorrt*) ;;
+            *) PATHS="\$PATHS \$p" ;;
+          esac
+        done
+        if [ -z "\$PATHS" ]; then
+          exit 0
+        fi
         for attempt in 1 2 3; do
-          if attic push "$ATTIC_CACHE" \$OUT_PATHS; then
+          if attic push "$ATTIC_CACHE" \$PATHS; then
             exit 0
           fi
         done
-        echo "Failed to push \$OUT_PATHS after 3 attempts" >&2
+        echo "Failed to push \$PATHS after 3 attempts" >&2
         exit 1
         HOOK
         chmod +x /tmp/push-hook.sh
