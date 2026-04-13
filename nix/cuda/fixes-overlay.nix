@@ -110,6 +110,11 @@ final: prev: {
               broken = true;
             };
           });
+          libcudla = csPrev.libcudla.overrideAttrs (old: {
+            meta = old.meta // {
+              broken = true;
+            };
+          });
           # Fix missing _CCCL_PP_SPLICE_WITH_IMPL20 in CCCL preprocessor.h.
           # IMPL21 chains to IMPL19 (skipping 20), causing an off-by-one when
           # __CUDA_ARCH_LIST__ has >=17 entries.
