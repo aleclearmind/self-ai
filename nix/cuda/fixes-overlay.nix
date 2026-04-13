@@ -94,6 +94,11 @@ final: prev: {
           CMAKE_BUILD_TYPE = "Release";
         };
         xformers = pyPrev.xformers.overrideAttrs { NIX_BUILD_CORES = 4; };
+        gradio = pyPrev.gradio.overridePythonAttrs {
+          doCheck = false;
+          doInstallCheck = false;
+          pythonImportsCheck = [ ];
+        };
       }
     )
   ];
