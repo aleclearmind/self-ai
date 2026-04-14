@@ -92,10 +92,9 @@ final: prev: {
           ];
         });
         vllm = pyPrev.vllm.overrideAttrs {
-          # SM100 FP8 CUTLASS kernels need ~8-10G per nvcc process;
-          # 8×4=32 concurrent threads OOMs the runner.
-          NIX_BUILD_CORES = 4;
-          NVCC_THREADS = 2;
+          # SM100 FP8 CUTLASS kernels OOM the runner at higher parallelism.
+          NIX_BUILD_CORES = 2;
+          NVCC_THREADS = 1;
           CMAKE_BUILD_TYPE = "Release";
         };
         xformers = pyPrev.xformers.overrideAttrs { NIX_BUILD_CORES = 4; };
