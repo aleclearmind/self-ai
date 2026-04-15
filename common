@@ -1,0 +1,60 @@
+# shellcheck disable=SC2148
+set -euo pipefail
+
+function log() {
+    echo "$1" > /dev/stderr
+}
+
+function fail() {
+    log "$1"
+    exit 1
+}
+
+function ask() {
+    read -p "$1 " -n 1 -r
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        return 0;
+    fi
+    return 1
+}
+
+function stderr() {
+    "$@" > /dev/stderr
+}
+
+function prettysize() {
+  numfmt --to=iec-i --suffix=B --format="%.2f" "$(stat -c %s "$1")"
+}
+
+function yaml_export() {
+  local FILE="$1"
+  shift
+
+  local KEY="$1"
+  shift
+
+  if ! test -f "$FILE"; then
+    echo "File not found: $FILE" >&2
+    return 1
+  fi
+
+  local ENTRIES
+  ENTRIES=$(yq e ".$KEY | to_entries | .[] | .key + \"=\" + (.value | tostring)" "$FILE") || return 1
+
+  if [[ -z "$ENTRIES" ]]; then
+    echo "Key not found: $KEY" >&2
+    return 1
+  fi
+
+  local LINE
+  while IFS= read -r LINE; do
+    export "$LINE"
+  done <<< "$ENTRIES"
+}
+
+# shellcheck disable=SC2034
+SSH_PREFIX=(ssh -o "StrictHostKeyChecking no")
+
+if test -e "$SCRIPT_DIR/configuration"; then
+   source "$SCRIPT_DIR/configuration"
+fi
