@@ -15,30 +15,53 @@ final: prev: {
       {
         cupy =
           let
-            cudaPkgs = pyFinal.pkgs.cudaPackages;
+            effectiveCudaPkgs = pyFinal.pkgs.cudaPackages.overrideScope (_: _: {
+              cudnn = null;
+            });
+            # Mirrors the outpaths list inside nixpkgs' cupy/default.nix.
+            # Keep in sync if upstream changes it.
+            outpaths = builtins.filter (p: p != null) (
+              with effectiveCudaPkgs;
+              [
+                cuda_cccl
+                cuda_cudart
+                cuda_nvcc
+                cuda_nvrtc
+                cuda_nvtx
+                cuda_profiler_api
+                libcublas
+                libcufft
+                libcurand
+                libcusolver
+                libcusparse
+                libcusparse_lt
+                (effectiveCudaPkgs.nvprof or null)
+              ]
+            );
+            joinedName = "cudatoolkit-joined-${effectiveCudaPkgs.cudaMajorMinorVersion}";
+            # Same symlinkJoin as cupy/default.nix but filter out -static
+            # outputs. Cupy's stock farm pulls every output of every cuda
+            # dep (incl. -static) and its path is baked into the built
+            # artifact via CUDA_PATH, dragging all -static outputs into
+            # cupy's runtime closure (and thus vllm's).
+            joined-nostatic = pyFinal.pkgs.symlinkJoin {
+              name = "${joinedName}-nostatic";
+              paths =
+                outpaths
+                ++ lib.concatMap (
+                  p: lib.map (o: p.${o}) (lib.filter (o: o != "static") p.outputs)
+                ) outpaths;
+            };
+            swap = d: if (d.name or "") == joinedName then joined-nostatic else d;
           in
           (pyFinal.callPackage (pyFinal.pkgs.path + "/pkgs/development/python-modules/cupy") {
-            cudaPackages = cudaPkgs.overrideScope (_: _: { cudnn = null; });
+            cudaPackages = effectiveCudaPkgs;
           }).overrideAttrs
             (old: {
               CUPY_NVCC_GENERATE_CODE = lib.concatMapStringsSep ";" mkGencode flags.cudaCapabilities;
-              nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
-                pyFinal.pkgs.removeReferencesTo
-              ];
-              # cupy's cudatoolkit-joined pulls all outputs including -static
-              # into the runtime closure. Discover the actual static refs
-              # baked into the built .so files and strip them — naming
-              # cuda packages at eval time would pull their drvs (notably
-              # tensorrt, ~7G) into cupy's input closure for nothing.
-              postFixup = (old.postFixup or "") + ''
-                find $out -name '*.so' -print0 | while IFS= read -r -d "" f; do
-                  for ref in $(strings "$f" \
-                      | grep -oE '/nix/store/[a-z0-9]{32}-[^[:space:]/]*-static' \
-                      | sort -u); do
-                    remove-references-to -t "$ref" "$f"
-                  done
-                done
-              '';
+              CUDA_PATH = "${joined-nostatic}";
+              buildInputs = map swap (old.buildInputs or [ ]);
+              nativeBuildInputs = map swap (old.nativeBuildInputs or [ ]);
             });
         # Generated .cpp files OOM gcc/nvcc — too few shards.
         # https://github.com/pytorch/pytorch/issues/178666

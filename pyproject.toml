@@ -3,5 +3,17 @@ name = "self-ai"
 version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
-    "vastai>=0.5.0",
+    "vastai>=1.0.3",
+    "textual>=0.80",
+    "requests>=2.31",
+    "pyyaml>=6.0",
+    "click>=8.1",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=8",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

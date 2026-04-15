@@ -27,3 +27,14 @@ vastai set api-key "$API_KEY"
 ```
 ./launch-llm gpt-oss
 ```
+
+# TUI
+
+```
+./self-ai
+```
+
+Lists running vastai instances tagged as self-ai templates (whisper, vllm,
+easycontrol), lets you launch new ones, and exposes template-specific
+actions (subtitle a video, open OpenWebUI, open the browser on the
+service port, etc.). Labels are persisted in `~/.config/self-ai/labels.json`.
