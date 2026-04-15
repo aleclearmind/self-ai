@@ -22,7 +22,7 @@ yaml_export "$MODELS_YAML" "$MODEL_NAME"
 SSH_URL=$(
     "$SCRIPT_DIR/create-instance" \
         'ghcr.io/aleclearmind/vast-ai-nix-container-base' \
-        'gpu_ram >= '"$MINIMUM_GPU_RAM"' compute_cap == 1200 inet_down >= 1000' \
+        'gpu_ram >= '"$MINIMUM_GPU_RAM"' cuda_max_good >= 12.9 inet_down >= 1000' \
         "$((MODEL_SIZE + 100))"
 )
 
