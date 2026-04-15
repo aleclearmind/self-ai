@@ -108,12 +108,12 @@ let
 
     mkdir -p /run/sshd
 
-    if [ -z "''${SSH_PUBLIC_KEY:-}" ]; then
-      log "ERROR: SSH_PUBLIC_KEY environment variable is not set"
+    if [ -z "''${SELF_AI_SSH_PUBLIC_KEY:-}" ]; then
+      log "ERROR: SELF_AI_SSH_PUBLIC_KEY environment variable is not set"
       exit 1
     fi
 
-    echo "$SSH_PUBLIC_KEY" > /root/.ssh/authorized_keys
+    echo "$SELF_AI_SSH_PUBLIC_KEY" > /root/.ssh/authorized_keys
     chmod 600 /root/.ssh/authorized_keys
 
     if [ ! -f /etc/ssh/ssh_host_ed25519_key ]; then
