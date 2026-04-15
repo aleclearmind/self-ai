@@ -41,7 +41,7 @@ cd /root
 export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
 source /etc/profile.d/nix.sh
 CAPABILITIES=$(/nix/store/*-glibc-*/lib/ld-linux-x86-64.so.2 --library-path /usr/lib/x86_64-linux-gnu/ /usr/bin/nvidia-smi --query-gpu=compute_cap --format=noheader)
-nix profile add self-ai#"\"vllm-$CAPABILITIES\""
+nix profile add self-ai#"\"vllm\""
 '
 
 PORT=8000
