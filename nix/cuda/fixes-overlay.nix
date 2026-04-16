@@ -19,7 +19,10 @@ final: prev: {
               cudnn = null;
             });
             # Mirrors the outpaths list inside nixpkgs' cupy/default.nix.
-            # Keep in sync if upstream changes it.
+            # Keep in sync if upstream changes it. Intentionally excludes
+            # libcusparse_lt: nixpkgs comments "too new for CuPy" and
+            # including it makes setup.py try to compile cusparselt.pyx
+            # against an incompatible API.
             outpaths = builtins.filter (p: p != null) (
               with effectiveCudaPkgs;
               [
@@ -34,15 +37,16 @@ final: prev: {
                 libcurand
                 libcusolver
                 libcusparse
-                libcusparse_lt
                 (effectiveCudaPkgs.nvprof or null)
               ]
             );
             joinedName = "cudatoolkit-joined-${effectiveCudaPkgs.cudaMajorMinorVersion}";
-            # Same symlinkJoin as cupy/default.nix but filter out -static
-            # outputs. Cupy's stock farm pulls every output of every cuda
-            # dep (incl. -static) and its path is baked into the built
-            # artifact via CUDA_PATH, dragging all -static outputs into
+            # Same symlinkJoin as cupy/default.nix but drop -static
+            # outputs. libcudart_static.a stays reachable through
+            # cuda_cudart's `out` output (it has no separate static
+            # output). Cupy's stock farm otherwise pulls every output
+            # of every cuda dep and its path is baked into the built
+            # artifact via CUDA_PATH, dragging -static outputs into
             # cupy's runtime closure (and thus vllm's).
             joined-nostatic = pyFinal.pkgs.symlinkJoin {
               name = "${joinedName}-nostatic";
