@@ -1,4 +1,13 @@
 gpt-oss:
-  OLLAMA_MODEL_NAME: gpt-oss:120b
+  MODEL_NAME: openai/gpt-oss-120b
   MINIMUM_GPU_RAM: 60
   MODEL_SIZE: 75
+  EXTRA_ARGUMENTS: ""
+minimax-2-7:
+  MODEL_NAME: MiniMaxAI/MiniMax-M2.7
+  MINIMUM_GPU_RAM: 270
+  MODEL_SIZE: 300
+  # EXTRA_ARGUMENTS: |-
+  #   --tensor-parallel-size 4 --tool-call-parser minimax_m2 --reasoning-parser minimax_m2 --compilation-config '{"mode":3,"pass_config":{"fuse_minimax_qk_norm":true}}' --enable-auto-tool-choice --trust-remote-code
+  EXTRA_ARGUMENTS: |-
+    --tensor-parallel-size 8 --enable-expert-parallel --tool-call-parser minimax_m2 --reasoning-parser minimax_m2 --compilation-config '{"mode":3,"pass_config":{"fuse_minimax_qk_norm":true}}' --enable-auto-tool-choice --trust-remote-code
