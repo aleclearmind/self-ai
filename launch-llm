@@ -22,7 +22,7 @@ yaml_export "$MODELS_YAML" "$MODEL_NAME"
 SSH_URL=$(
     "$SCRIPT_DIR/create-instance" \
         'ghcr.io/aleclearmind/vast-ai-nix-container-base' \
-        'gpu_ram >= '"$MINIMUM_GPU_RAM"' cuda_max_good >= 12.9 inet_down >= 1000' \
+        'gpu_total_ram >= '"$MINIMUM_GPU_RAM"' compute_cap >= 750 cuda_max_good >= 12.9 inet_down >= 1000' \
         "$((MODEL_SIZE + 100))"
 )
 
@@ -40,7 +40,7 @@ cd /root
 # TODO: not necessary
 export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt
 source /etc/profile.d/nix.sh
-CAPABILITIES=$(/nix/store/*-glibc-*/lib/ld-linux-x86-64.so.2 --library-path /usr/lib/x86_64-linux-gnu/ /usr/bin/nvidia-smi --query-gpu=compute_cap --format=noheader)
+CAPABILITIES=$(/nix/store/*-glibc-*/lib/ld-linux-x86-64.so.2 --library-path /usr/lib/x86_64-linux-gnu/ /usr/bin/nvidia-smi --query-gpu=compute_cap --format=csv,noheader)
 nix profile add self-ai#"\"vllm\""
 '
 
@@ -52,5 +52,5 @@ log "Launching vllm on $PORT"
     '
 export LD_LIBRARY_PATH="/usr/lib/x86_64-linux-gnu"
 source /etc/profile.d/nix.sh
-vllm serve openai/gpt-oss-120b
+vllm serve '"$MODEL_NAME"' '"$EXTRA_ARGUMENTS"'
 '

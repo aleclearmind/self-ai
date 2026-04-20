@@ -99,7 +99,7 @@ if test -z "$IMAGE"; then
     INSTANCE_EXTRA_ARGS=()
 else
     INSTANCE_EXTRA_ARGS=( \
-        --env '-e SSH_PUBLIC_KEY="'"$(cat ~/.ssh/id_ed25519_datacrunch.pub)"'"' \
+        --env '-e SELF_AI_SSH_PUBLIC_KEY="'"$(cat "$SSH_KEY".pub)"'"' \
         --direct \
         --args
     )
